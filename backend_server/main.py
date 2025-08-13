@@ -186,3 +186,23 @@ async def restaurant_calories_endpoint(request: Request):
     except Exception as e:
         logger.error(f"/bots/restaurant-calories error: {e}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.post("/bots/home-cooked")
+async def home_cooked_endpoint(request: Request):
+    try:
+        body = await request.json()
+        dish_json = body.get("dish_json")
+        image_token = body.get("image_token") or (dish_json or {}).get("_image_token")
+        if not dish_json:
+            return JSONResponse(content={"error": "Missing dish_json"}, status_code=400)
+        # Ensure it's for home-cooked
+        src = (dish_json or {}).get("source")
+        if src and str(src).upper() not in {"HOME", "HOMECOOKED", "HOME_COOKED"}:
+            return JSONResponse(content={"error": "Not a home-cooked meal"}, status_code=400)
+        from .models.home_cooked_calories import analyze_home_cooked_from_context_and_image
+        result = analyze_home_cooked_from_context_and_image(dish_json, image_token)
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(f"/bots/home-cooked error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)

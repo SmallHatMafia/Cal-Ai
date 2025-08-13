@@ -15,7 +15,7 @@ Concise, reusable overview of the backend + frontend app to accelerate future ta
 - **Required**: `OPENAI_API_KEY`
 - **Nutritionix (for restaurant calories)**: `NUTRITIONIX_APP_ID`, `NUTRITIONIX_API_KEY`
 - **Models (optional)**: `OPENAI_VISION_MODEL` (default `gpt-4o-mini`), `OPENAI_TEXT_MODEL` (default `gpt-4o-mini`)
-- **Toggles**: `DD_INCLUDE_IMAGE` and `RI_INCLUDE_IMAGE` set to `1/true` to include the image in LLM prompts for those stages
+- **Step tuning (optional)**: `STEP1_TEMPERATURE`, `STEP1_TOP_P`, `STEP2_TEMPERATURE`, `STEP2_TOP_P`, `STEP3_TEMPERATURE`, `STEP3_TOP_P`
 - **Discovery**: modules attempt `backend_server/.env`, `backend/.env`, CWD `.env`, and user home `.env`.
 
 ### Backend
@@ -31,11 +31,9 @@ Concise, reusable overview of the backend + frontend app to accelerate future ta
   - `GET /logs` → returns and then clears `backend.log`
   - `POST /bots/visual-context` (multipart `file`) → returns Visual Context JSON and `_image_token`
   - `POST /bots/dish-determiner` (JSON: `visual_json`, optional `image_token`) → returns dish/source JSON
-  - `POST /bots/restaurant-calories` (JSON: `visual_json`, `dish_json`, optional `image_token`) → returns `{ itemized, macros, _total_duration_ms }`
+  - `POST /bots/restaurant-calories` (JSON: `visual_json`, `dish_json`, optional `image_token`) → returns `{ itemized, macros }`
 
 - CLI commands (`backend_server/cli.py`)
-  - `fetch test` → demo payload
-  - `return <food_name> <branded?>` / `fetch <food_name> <branded?>` → placeholder search
   - `visual_context <imagePath|dataURL>` → run visual context analysis
   - `dish_determiner <visual_json_str> [image_token]` → classify dish
   - `restaurant_calories <visual_json_str> <dish_json_str> [image_token]` → itemize + Nutritionix lookup
@@ -48,6 +46,7 @@ Concise, reusable overview of the backend + frontend app to accelerate future ta
      - `context`: `{ environment, background_elements[], packaging_cues[], notable_cues[] }`
      - `_duration_ms`: timing metadata
    - `run_visual_context_and_forward(image_bytes, mime)` returns the JSON and attaches an `_image_token` stored in-memory via `ImageStore`.
+   - Downstream image inclusion: stages 2 and 3 will include the image automatically when an `image_token` is provided via `ImageStore`.
 
 2) `models/dish_determiner.py` (Step 2: Dish Determiner)
    - `determine_dishes_from_visual_json(visual_json)` and `determine_dishes_from_visual_json_and_image(visual_json, image_token)` call OpenAI (text/vision) using a strict JSON system prompt; salvage logic handles fenced/non-JSON replies; returns `_duration_ms`.
@@ -67,7 +66,7 @@ Concise, reusable overview of the backend + frontend app to accelerate future ta
      - Calls OpenAI (vision if `RI_INCLUDE_IMAGE=1` and image available) with a strict JSON itemizer prompt.
      - Output (strict single JSON object; no extra text):
        - `restaurant_name`: must equal Step 2 `restaurant_name` (brand lock)
-       - `nl_query`: semicolon-separated phrases for Nutritionix (e.g., "1 Medium Sprite; 6 Chicken McNuggets")
+      - `nl_query`: semicolon-separated phrases for Nutritionix built from per-item `nutritionix_query` values (no quantities), e.g., "McDonald's Coca-Cola, 21 fl oz; McDonald's Chicken McNuggets, 6 Piece"
        - `items[]`: objects with fields
          - `item_name`, `quantity`, `size`(=XS|S|M|L|XL|UNKNOWN), `portion_detail`, `description`, `confidence`(0..1), `mapped_from_component`(main|sides|drinks|extras)
        - `validation`: `{ brand_lock: true, detected_conflict: boolean, notes: string }`
@@ -103,8 +102,9 @@ Concise, reusable overview of the backend + frontend app to accelerate future ta
 - `/ws/terminal` executes arbitrary commands; for local development only.
 
 ### Known gaps
-- `models/return_foods.py` is a stub (empty results); `preload_model_and_indices()` is a no-op.
+- `models/return_foods.py` is not present; `preload_model_and_indices()` safely falls back to a no-op.
 - `models/meal_creator.py` is empty.
+- `models/home_cooked_calories.py` is empty.
 
 ### Example requests
 - Visual Context (multipart):

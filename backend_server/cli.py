@@ -49,4 +49,17 @@ def handle_command(command: str, args: list[str]) -> dict:
         except Exception as e:
             return {"error": str(e)}
 
+    if command == "home_cooked":
+        # args: [dish_json_str, image_token?]
+        if not args:
+            return {"error": "home_cooked requires dish_json as a JSON string"}
+        try:
+            import json
+            dish_json = json.loads(args[0])
+            image_token = args[1] if len(args) > 1 else (dish_json.get("_image_token"))
+            from .models.home_cooked_calories import analyze_home_cooked_from_context_and_image
+            return analyze_home_cooked_from_context_and_image(dish_json, image_token)
+        except Exception as e:
+            return {"error": str(e)}
+
     return {"error": "Unknown command or arguments"}

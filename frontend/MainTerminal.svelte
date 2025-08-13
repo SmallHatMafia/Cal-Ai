@@ -73,8 +73,26 @@
         output += JSON.stringify(total, null, 2) + '\n';
         lastPipeline = total;
       } else {
-        lastPipeline = { visualJson, dishJson };
-        output += JSON.stringify(lastPipeline, null, 2) + '\n';
+        // HOME-COOKED: run home-cooked analyzer
+        const hcRes = await fetch('/api/bots/home-cooked', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dish_json: dishJson, image_token: visualJson._image_token })
+        });
+        const homeJson = await hcRes.json();
+        if (!hcRes.ok) throw new Error(homeJson?.error || 'home-cooked failed');
+        const total = {
+          source: dishJson.source,
+          dish_name: dishJson.dish_name,
+          home_cooked: homeJson,
+          steps_sec: {
+            visual_context: (visualJson._duration_ms || 0) / 1000,
+            dish_determiner: (dishJson._duration_ms || 0) / 1000,
+            home_cooked: (homeJson._duration_ms || 0) / 1000,
+          }
+        };
+        lastPipeline = total;
+        output += JSON.stringify(total, null, 2) + '\n';
       }
     } catch (e) {
       output += '[ERROR]\n' + (e?.message || e) + '\n';

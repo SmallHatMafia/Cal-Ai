@@ -273,5 +273,113 @@ def get_restaurant_itemizer_prompt() -> str:
     return RESTAURANT_ITEMIZER_SYSTEM_PROMPT
 
 
-  
+# Home-cooked meal analyzer prompt (system)
+HOME_COOKED_ANALYZER_SYSTEM_PROMPT: str = (
+    """
+Inputs
+image: the meal photo
+
+dish_determiner_context: text summary from the previous step indicating meal is home-cooked and any cues (ingredients, cookware, plate layout, cuisine hints)
+
+Goal
+From the image + context, identify the single best primary dish name (keep it simple, generic, and human-recognizable), optionally list only notable sides, and estimate amounts. Do not invent brand or restaurant names.
+
+Core Rules
+One primary dish: Choose the simplest accurate name (e.g., “spaghetti with meat sauce”, “roast chicken leg”, “vegetable fried rice”, “beef stew”).
+
+Sides are optional: Include sides only if clearly present and non-trivial (≈ ≥ 1/3 of plate or clearly distinct, e.g., a roll, a salad, rice mound). Ignore garnish.
+
+Amounts:
+
+Provide quantity and portion_detail for every item (primary + listed sides).
+
+Prefer pieces/slices/legs/thighs/eggs/tortillas, or cups for mixed/loose foods (rice, pasta, stew, salad).
+
+Use visual anchors to estimate: plate fraction, utensil size (fork/spoon), common sizes (slice of bread, standard bowl), hand size proxies.
+
+If uncertain, give a tight range (e.g., “0.75–1 cup”) instead of leaving blank.
+
+Keep names generic (home-cooked): do not use restaurant SKUs or brands. Include a cooking method when obvious (baked/roasted/grilled/boiled/stir-fried).
+
+Single category bias: If multiple components look like variations of the same dish (e.g., toppings), roll them into the primary dish instead of listing as sides.
+
+No nulls: Never return null fields. Use best visual estimate or a tight range.
+
+Consistency: Names should be concise, lower noise, and stable for downstream matching (e.g., “chicken thigh, roasted” not “homestyle yummy roasted chicken!!!”).
+
+Units:
+
+Solids: pieces, slices, legs, thighs, fillets, tortillas; or grams if scale cues exist.
+
+Mixed/loose: cups (0.25 increments if helpful).
+
+Baked goods: slices, pieces, or “1 muffin” etc.
+
+Output (JSON)
+Return exactly this JSON structure:
+
+{
+  "source": "HOMECOOKED",
+  "primary_dish": {
+    "name": "<generic dish name>",
+    "quantity": <number or "X–Y" range>,
+    "portion_detail": "<e.g., 1 leg | 1.5 cups | 2 slices | 1 bowl>",
+    "prep_method": "<roasted|baked|grilled|boiled|stir-fried|sauteed|none>",
+    "notes": "<short cue-based justification; ingredients seen>"
+  },
+  "sides": [
+    {
+      "name": "<generic side>",
+      "quantity": <number or "X–Y" range>,
+      "portion_detail": "<e.g., 0.5 cup | 1 slice | 1 roll>",
+      "notes": "<short cue-based justification>"
+    }
+  ],
+  "confidence": {
+    "primary_dish": 0.0,
+    "sides": 0.0
+  },
+  "visual_cues_used": [
+    "<plate fraction>", "<utensil size>", "<bowl depth>", "<grain size>", "<bone shape>", "<noodle thickness>"
+  ]
+}
+If no notable sides: return "sides": [].
+
+confidence values are 0–1 floats.
+
+Heuristics & Disambiguation
+Protein pieces: count visible legs/thighs/wings/fillets. If chopped/shredded and mixed, convert to cups (0.5–1.5 typical per mound).
+
+Rice/pasta/stews/salads: use bowl/plate depth for cup estimates. A dense mound ≈ 1 cup per fist-sized pile; smaller mound ≈ 0.5 cup.
+
+Sandwiches/burritos: usually 1 item; if halved, still 1, unless two complete items are present.
+
+Pizza: use slices; typical slice is a triangle with visible crust arc.
+
+Mixed bowls (poke, grain bowls): classify as one dish; list only clearly separate sides (e.g., separate roll).
+
+Final Checks (hard requirements)
+Exactly one primary_dish.
+
+Sides only if notable; else empty array.
+
+Every item has quantity and portion_detail.
+
+No brands, no nulls, no restaurant SKUs.
+
+Keep names concise and generic; include cooking method when clear.
+
+Return only the JSON object specified.
+"""
+)
+
+
+def get_home_cooked_prompt() -> str:
+    return HOME_COOKED_ANALYZER_SYSTEM_PROMPT
+
+
+# Update registry
+PROMPTS.update({
+    "home_cooked": HOME_COOKED_ANALYZER_SYSTEM_PROMPT,
+})
 
