@@ -11,12 +11,6 @@ from typing import List
 import threading
 import concurrent.futures
 import os
-try:
-    # Legacy import (module may have been removed). Provide no-op fallback.
-    from .models.return_foods import preload_model_and_indices  # type: ignore
-except Exception:
-    def preload_model_and_indices() -> None:  # type: ignore
-        return None
 
 app = FastAPI()
 
@@ -123,12 +117,6 @@ def new_print(*args, **kwargs):
     old_print(*args, **kwargs)
     logger.info(' '.join(str(a) for a in args))
 builtins.print = new_print
-
-@app.on_event("startup")
-def preload_on_startup():
-    preload_model_and_indices() 
-
-
 # Bots API
 @app.post("/bots/visual-context")
 async def visual_context_endpoint(file: UploadFile = File(...)):
