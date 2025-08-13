@@ -1,0 +1,761 @@
+﻿Main
+Debug
+Upload image and click Start to run pipeline
+Main Terminal
+Mcdonalds test.jpg
+Start
+{
+  "source": "RESTAURANT",
+  "dish_name": "chicken nuggets",
+  "restaurant_name": "McDonald's",
+  "steps_sec": {
+    "visual_context": 7.572,
+    "dish_determiner": 5.585,
+    "restaurant_itemizer": 7.083,
+    "nutritionix_lookup": 0.938
+  },
+  "total_sec": 0,
+  "itemizer_items": [
+    {
+      "item_name": "Chicken McNuggets, 4 Piece",
+      "description": "crispy chicken nuggets"
+    },
+    {
+      "item_name": "Carrot Sticks Kids Bag",
+      "description": "crunchy & delicious carrot sticks"
+    },
+    {
+      "item_name": "Soft Drink, Medium",
+      "description": "large cup with ice"
+    },
+    {
+      "item_name": "Barbecue Sauce Packet",
+      "description": "Barbecue sauce"
+    }
+  ],
+  "items": [
+    {
+      "food_name": "Chicken McNuggets, 4 Piece",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 170,
+        "protein_g": 9,
+        "carbs_g": 10,
+        "fat_g": 10,
+        "serving_qty": 4,
+        "serving_unit": "Piece",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "Chicken McNuggets, 4 Piece"
+      }
+    },
+    {
+      "food_name": "Sprite, Medium",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 200,
+        "protein_g": 0,
+        "carbs_g": 51,
+        "fat_g": 0,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "Sprite, Medium"
+      }
+    },
+    {
+      "food_name": "World Famous Fries, Kids",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 110,
+        "protein_g": 2,
+        "carbs_g": 15,
+        "fat_g": 5,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "World Famous Fries, Kids"
+      }
+    },
+    {
+      "food_name": "Ketchup Packet",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 10,
+        "protein_g": 0,
+        "carbs_g": 2,
+        "fat_g": 0,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "Ketchup Packet"
+      }
+    }
+  ]
+}
+{
+  "source": "RESTAURANT",
+  "dish_name": "burger",
+  "restaurant_name": "McDonald's",
+  "steps_sec": {
+    "visual_context": 6.004,
+    "dish_determiner": 5.609,
+    "restaurant_itemizer": 8.175,
+    "nutritionix_lookup": 0.611
+  },
+  "total_sec": 0,
+  "itemizer_items": [
+    {
+      "item_name": "Cheeseburger",
+      "description": "classic cheeseburger with cheese and beef patty"
+    },
+    {
+      "item_name": "World Famous Fries Medium",
+      "description": "golden, crispy fries"
+    },
+    {
+      "item_name": "Soft Drink Medium",
+      "description": "soft drink"
+    }
+  ],
+  "items": [
+    {
+      "food_name": "World Famous Fries, Medium",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 320,
+        "protein_g": 5,
+        "carbs_g": 43,
+        "fat_g": 15,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "World Famous Fries, Medium"
+      }
+    },
+    {
+      "food_name": "Cheeseburger",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 300,
+        "protein_g": 15,
+        "carbs_g": 32,
+        "fat_g": 13,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "Cheeseburger"
+      }
+    },
+    {
+      "food_name": "Sprite, Medium",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 200,
+        "protein_g": 0,
+        "carbs_g": 51,
+        "fat_g": 0,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "Sprite, Medium"
+      }
+    }
+  ]
+}
+{
+  "source": "RESTAURANT",
+  "dish_name": "burger",
+  "restaurant_name": "McDonald's",
+  "steps_sec": {
+    "visual_context": 4.772,
+    "dish_determiner": 4.255,
+    "restaurant_itemizer": 10.881,
+    "nutritionix_lookup": 1.053
+  },
+  "total_sec": 0,
+  "itemizer_items": [
+    {
+      "item_name": "Chicken McNuggets, 10 Piece",
+      "description": "breaded, golden brown, bite-sized pieces"
+    },
+    {
+      "item_name": "Cheeseburger",
+      "description": "round bun, beef patty, melted cheese, topped with a slice of cheese"
+    },
+    {
+      "item_name": "World Famous Fries, Medium",
+      "description": "thin, golden brown, crispy potato fries"
+    },
+    {
+      "item_name": "Tangy BBQ Sauce Packet",
+      "description": "BBQ dipping sauce"
+    },
+    {
+      "item_name": "Spicy Buffalo Sauce Packet",
+      "description": "spicy buffalo dipping sauce"
+    }
+  ],
+  "items": [
+    {
+      "food_name": "World Famous Fries, Medium",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 320,
+        "protein_g": 5,
+        "carbs_g": 43,
+        "fat_g": 15,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "World Famous Fries, Medium"
+      }
+    },
+    {
+      "food_name": "Chicken McNuggets, 10 Piece",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 410,
+        "protein_g": 23,
+        "carbs_g": 26,
+        "fat_g": 24,
+        "serving_qty": 10,
+        "serving_unit": "Piece",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "Chicken McNuggets, 10 Piece"
+      }
+    },
+    {
+      "food_name": "Cheeseburger",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 300,
+        "protein_g": 15,
+        "carbs_g": 32,
+        "fat_g": 13,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "Cheeseburger"
+      }
+    },
+    {
+      "food_name": "Ketchup Packet",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 10,
+        "protein_g": 0,
+        "carbs_g": 2,
+        "fat_g": 0,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "Ketchup Packet"
+      }
+    },
+    {
+      "food_name": "Ketchup Packet",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 10,
+        "protein_g": 0,
+        "carbs_g": 2,
+        "fat_g": 0,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "Ketchup Packet"
+      }
+    }
+  ]
+}
+{
+  "source": "RESTAURANT",
+  "dish_name": "chicken nuggets",
+  "restaurant_name": "Wendy's",
+  "steps_sec": {
+    "visual_context": 7.904,
+    "dish_determiner": 5.287,
+    "restaurant_itemizer": 7.878,
+    "nutritionix_lookup": 0.943
+  },
+  "total_sec": 0,
+  "itemizer_items": [
+    {
+      "item_name": "Crispy Chicken Nuggets, 6 Piece",
+      "description": "breaded chicken nuggets"
+    },
+    {
+      "item_name": "Hot & Crispy Fries, Medium",
+      "description": "thin, golden-brown, crispy fries"
+    },
+    {
+      "item_name": "Frosty, Medium",
+      "description": "layered dessert with red fruit topping and white cream"
+    },
+    {
+      "item_name": "Dipping Sauce, Packet",
+      "description": "dipping sauce in a small black container with a purple lid"
+    }
+  ],
+  "items": [
+    {
+      "food_name": "Medium Vanilla Frosty",
+      "brand_name": "Wendy's",
+      "macros": {
+        "calories": 390,
+        "protein_g": 12,
+        "carbs_g": 62,
+        "fat_g": 11,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "Wendy's",
+        "food_name": "Medium Vanilla Frosty"
+      }
+    },
+    {
+      "food_name": "6 Piece Crispy Chicken Nuggets",
+      "brand_name": "Wendy's",
+      "macros": {
+        "calories": 270,
+        "protein_g": 15,
+        "carbs_g": 14,
+        "fat_g": 17,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "Wendy's",
+        "food_name": "6 Piece Crispy Chicken Nuggets"
+      }
+    },
+    {
+      "food_name": "sauce",
+      "brand_name": "Wendy's",
+      "macros": {
+        "calories": 66,
+        "protein_g": 1.83,
+        "carbs_g": 9.81,
+        "fat_g": 2.13,
+        "serving_qty": 0.5,
+        "serving_unit": "cup",
+        "serving_weight_grams": 132,
+        "brand_name": null,
+        "food_name": "sauce"
+      }
+    },
+    {
+      "food_name": "Medium Natural-Cut Fries",
+      "brand_name": "Wendy's",
+      "macros": {
+        "calories": 350,
+        "protein_g": 5,
+        "carbs_g": 47,
+        "fat_g": 16,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "Wendy's",
+        "food_name": "Medium Natural-Cut Fries"
+      }
+    }
+  ]
+}
+{
+  "source": "RESTAURANT",
+  "dish_name": "burger",
+  "restaurant_name": "Burger King",
+  "steps_sec": {
+    "visual_context": 5.106,
+    "dish_determiner": 4.533,
+    "restaurant_itemizer": 8.301,
+    "nutritionix_lookup": 0.966
+  },
+  "total_sec": 0,
+  "itemizer_items": [
+    {
+      "item_name": "World Famous Fries, Medium",
+      "description": "thin, golden, crispy"
+    },
+    {
+      "item_name": "Whopper",
+      "description": "red bun with black sesame seeds, filled with lettuce, sauce, and a beef patty"
+    },
+    {
+      "item_name": "Soft Drink, Medium",
+      "description": "large cup with a black design featuring Spider-Man"
+    }
+  ],
+  "items": [
+    {
+      "food_name": "Whopper",
+      "brand_name": "Burger King",
+      "macros": {
+        "calories": 670,
+        "protein_g": 32,
+        "carbs_g": 54,
+        "fat_g": 41,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "Burger King",
+        "food_name": "Whopper"
+      }
+    },
+    {
+      "food_name": "Sprite, Medium",
+      "brand_name": "Burger King",
+      "macros": {
+        "calories": 310,
+        "protein_g": 0,
+        "carbs_g": 82,
+        "fat_g": 0,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "Burger King",
+        "food_name": "Sprite, Medium"
+      }
+    },
+    {
+      "food_name": "French Fries, Medium",
+      "brand_name": "Burger King",
+      "macros": {
+        "calories": 370,
+        "protein_g": 5,
+        "carbs_g": 54,
+        "fat_g": 16,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "Burger King",
+        "food_name": "French Fries, Medium"
+      }
+    }
+  ]
+}
+{
+  "source": "RESTAURANT",
+  "dish_name": "chicken sandwich",
+  "restaurant_name": "Chick-fil-A",
+  "steps_sec": {
+    "visual_context": 5.988,
+    "dish_determiner": 5.783,
+    "restaurant_itemizer": 10.74,
+    "nutritionix_lookup": 1.402
+  },
+  "total_sec": 0,
+  "itemizer_items": [
+    {
+      "item_name": "Chick-fil-A Nuggets, 8 ct",
+      "description": "breaded chicken nuggets"
+    },
+    {
+      "item_name": "Waffle Potato Fries, Medium",
+      "description": "crispy waffle fries"
+    },
+    {
+      "item_name": "Chick-fil-A Chicken Sandwich",
+      "description": "breaded chicken patty on a round bun"
+    },
+    {
+      "item_name": "Barbecue Sauce Packet",
+      "description": "barbecue dipping sauce"
+    },
+    {
+      "item_name": "Creamy Ranch Packet",
+      "description": "creamy ranch dipping sauce"
+    },
+    {
+      "item_name": "Honey Mustard Packet",
+      "description": "honey mustard dipping sauce"
+    }
+  ],
+  "items": [
+    {
+      "food_name": "8 Count Chick-Fil-A Nuggets",
+      "brand_name": "Chick-fil-A",
+      "macros": {
+        "calories": 250,
+        "protein_g": 27,
+        "carbs_g": 11,
+        "fat_g": 11,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": 113,
+        "brand_name": "Chick-fil-A",
+        "food_name": "8 Count Chick-Fil-A Nuggets"
+      }
+    },
+    {
+      "food_name": "Chick-Fil-A Chicken Sandwich",
+      "brand_name": "Chick-fil-A",
+      "macros": {
+        "calories": 420,
+        "protein_g": 29,
+        "carbs_g": 41,
+        "fat_g": 18,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": 183,
+        "brand_name": "Chick-fil-A",
+        "food_name": "Chick-Fil-A Chicken Sandwich"
+      }
+    },
+    {
+      "food_name": "Medium Chick-Fil-A Waffle Potato Fries",
+      "brand_name": "Chick-fil-A",
+      "macros": {
+        "calories": 420,
+        "protein_g": 5,
+        "carbs_g": 45,
+        "fat_g": 24,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": 125,
+        "brand_name": "Chick-fil-A",
+        "food_name": "Medium Chick-Fil-A Waffle Potato Fries"
+      }
+    },
+    {
+      "food_name": "Fat-Free Honey Mustard Dressing",
+      "brand_name": "Chick-fil-A",
+      "macros": {
+        "calories": 90,
+        "protein_g": 0,
+        "carbs_g": 22,
+        "fat_g": 0,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": 57,
+        "brand_name": "Chick-fil-A",
+        "food_name": "Fat-Free Honey Mustard Dressing"
+      }
+    },
+    {
+      "food_name": "ranch",
+      "brand_name": "Chick-fil-A Grocery",
+      "macros": {
+        "calories": 129,
+        "protein_g": 0.4,
+        "carbs_g": 1.77,
+        "fat_g": 13.36,
+        "serving_qty": 2,
+        "serving_unit": "tablespoons",
+        "serving_weight_grams": 30,
+        "brand_name": null,
+        "food_name": "ranch"
+      }
+    },
+    {
+      "food_name": "barbecue sauce",
+      "brand_name": "Chick-fil-A Grocery",
+      "macros": {
+        "calories": 58.48,
+        "protein_g": 0.28,
+        "carbs_g": 13.86,
+        "fat_g": 0.21,
+        "serving_qty": 2,
+        "serving_unit": "tbsp",
+        "serving_weight_grams": 34,
+        "brand_name": null,
+        "food_name": "barbecue sauce"
+      }
+    }
+  ]
+}
+{
+  "source": "RESTAURANT",
+  "dish_name": "unidentified item",
+  "restaurant_name": null,
+  "steps_sec": {
+    "visual_context": 7.965,
+    "dish_determiner": 5.294,
+    "restaurant_itemizer": 8.506,
+    "nutritionix_lookup": 0.286
+  },
+  "total_sec": 0,
+  "itemizer_items": [
+    {
+      "item_name": "unidentified item",
+      "description": "round, purple bun with black sesame seeds, filled with cream"
+    },
+    {
+      "item_name": "churro fries",
+      "description": "thin, golden-brown, crispy churro sticks"
+    },
+    {
+      "item_name": "onion rings",
+      "description": "round, golden-brown, crispy onion rings"
+    },
+    {
+      "item_name": "unidentified drink",
+      "description": "frozen drink with chocolate and cream topping"
+    }
+  ],
+  "items": [
+    {
+      "food_name": "Chocolate Protein Powder",
+      "brand_name": "Drink Wholesome",
+      "macros": {
+        "calories": 90,
+        "protein_g": 15,
+        "carbs_g": 3,
+        "fat_g": 3,
+        "serving_qty": 3,
+        "serving_unit": "tbsp",
+        "serving_weight_grams": 22,
+        "brand_name": "Drink Wholesome",
+        "food_name": "Chocolate Protein Powder"
+      }
+    },
+    {
+      "food_name": "Unidentified Flying Almond Butter Cups Probiotic Coconut Gelato",
+      "brand_name": "Evolved",
+      "macros": {
+        "calories": 360,
+        "protein_g": 5,
+        "carbs_g": 30,
+        "fat_g": 27,
+        "serving_qty": 0.6700000166893005,
+        "serving_unit": "cup",
+        "serving_weight_grams": 100,
+        "brand_name": "Evolved",
+        "food_name": "Unidentified Flying Almond Butter Cups Probiotic Coconut Gelato"
+      }
+    },
+    {
+      "food_name": "Churro Fries, 12 Piece",
+      "brand_name": "Burger King",
+      "macros": {
+        "calories": 490,
+        "protein_g": 4,
+        "carbs_g": 75,
+        "fat_g": 20,
+        "serving_qty": 12,
+        "serving_unit": "Pieces",
+        "serving_weight_grams": null,
+        "brand_name": "Burger King",
+        "food_name": "Churro Fries, 12 Piece"
+      }
+    },
+    {
+      "food_name": "onion rings",
+      "brand_name": null,
+      "macros": {
+        "calories": 1003.92,
+        "protein_g": 13.79,
+        "carbs_g": 114.83,
+        "fat_g": 54.37,
+        "serving_qty": 1,
+        "serving_unit": "order",
+        "serving_weight_grams": 282,
+        "brand_name": null,
+        "food_name": "onion rings"
+      }
+    }
+  ]
+}
+{
+  "source": "RESTAURANT",
+  "dish_name": "chicken sandwich",
+  "restaurant_name": "McDonald's",
+  "steps_sec": {
+    "visual_context": 5.564,
+    "dish_determiner": 5.266,
+    "restaurant_itemizer": 9.082,
+    "nutritionix_lookup": 1.314
+  },
+  "total_sec": 0,
+  "itemizer_items": [
+    {
+      "item_name": "McCrispy",
+      "description": "crispy chicken patty with lettuce on a round bun"
+    },
+    {
+      "item_name": "World Famous Fries Medium",
+      "description": "thin, golden fries"
+    },
+    {
+      "item_name": "Coca-Cola 21 fl oz",
+      "description": "dark soda"
+    },
+    {
+      "item_name": "Cheeseburger",
+      "description": "beef patty with cheese in a round bun"
+    }
+  ],
+  "items": [
+    {
+      "food_name": "McCrispy",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 470,
+        "protein_g": 26,
+        "carbs_g": 46,
+        "fat_g": 20,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "McCrispy"
+      }
+    },
+    {
+      "food_name": "World Famous Fries, Medium",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 320,
+        "protein_g": 5,
+        "carbs_g": 43,
+        "fat_g": 15,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "World Famous Fries, Medium"
+      }
+    },
+    {
+      "food_name": "Cheeseburger",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 300,
+        "protein_g": 15,
+        "carbs_g": 32,
+        "fat_g": 13,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "Cheeseburger"
+      }
+    },
+    {
+      "food_name": "Coca-Cola, Large",
+      "brand_name": "McDonald's",
+      "macros": {
+        "calories": 380,
+        "protein_g": 0,
+        "carbs_g": 100,
+        "fat_g": 0,
+        "serving_qty": 1,
+        "serving_unit": "Serving",
+        "serving_weight_grams": null,
+        "brand_name": "McDonald's",
+        "food_name": "Coca-Cola, Large"
+      }
+    }
+  ]
+}

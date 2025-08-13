@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Envs and secrets
+.env
+*.env
+backend_server/.env
+
+# Logs
+backend_server/backend.log
+*.log
+
+# Virtual environments
+backend_server/venv/
+venv/
+.venv/
+
+# Large data (exclude heavy datasets and arrays)
+backend_server/data/**
+!backend_server/data/Bot Results.txt
+!backend_server/data/mini/
+!backend_server/data/mini/*-names.json
+backend_server/data/**/*.{npy,json}
+!backend_server/data/mini/*-names.json
+
+# Node / Svelte
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/dist/
+frontend/build/
+
+# IDE
+.vscode/
+.idea/
+
+# Python (backend)
+backend_server/venv/
+backend_server/__pycache__/
+backend_server/**/*.pyc
+backend_server/**/*.pyo
+backend_server/**/*.pyd
+backend_server/.mypy_cache/
+backend_server/.pytest_cache/
+backend_server/.env
+backend_server/.env.*
+
+# Node.js (frontend)
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/.vite/
+frontend/dist/
+
+# General
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.*
+
+# VSCode
+.vscode/
+
+# OS
+Icon?
+
+# Coverage
+coverage/
+*.cover
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Misc
+*.swp
+*~
+
+# Logs
+*.log
+
+# Env
+.env
+
+# Build
+frontend/dist/ 
