@@ -7,7 +7,7 @@ import sys
 sys.path.append('.')
 from .cli import handle_command
 import logging
-from typing import List
+from typing import List, Dict
 import threading
 import concurrent.futures
 import os
@@ -172,16 +172,29 @@ async def restaurant_calories_endpoint(request: Request):
         if not visual_json or not dish_json:
             return JSONResponse(content={"error": "Missing visual_json or dish_json"}, status_code=400)
         logger.info(f"/bots/restaurant-calories called source={(dish_json or {}).get('source')} image_token={bool(image_token)}")
-        from .models.resturant_calories import itemize_restaurant_items, fetch_nutritionix_macros
-        # Run itemization and Nutritionix lookup concurrently when possible
-        start = asyncio.get_event_loop().time()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-            loop = asyncio.get_event_loop()
-            itemized_task = loop.run_in_executor(pool, itemize_restaurant_items, visual_json, dish_json, image_token)
-            itemized = await itemized_task
-            macros_task = loop.run_in_executor(pool, fetch_nutritionix_macros, itemized)
-            macros = await macros_task
-        result = {"itemized": itemized, "macros": macros}
+        from .models.resturant_calories import restaurant_calories_pipeline
+        from .pipeline import GuardrailViolation, StageMetrics
+
+        loop = asyncio.get_event_loop()
+        metrics = StageMetrics()
+
+        def _run_pipeline() -> Dict[str, Any]:
+            return restaurant_calories_pipeline(visual_json, dish_json, image_token, metrics=metrics)
+
+        try:
+            result = await loop.run_in_executor(None, _run_pipeline)
+        except GuardrailViolation as exc:
+            logger.error(f"Guardrail violation: {exc.stage} {exc.message}")
+            return JSONResponse(
+                content={
+                    "error": exc.message,
+                    "stage": exc.stage,
+                    "details": exc.payload or {},
+                },
+                status_code=422,
+            )
+        result.setdefault("audit", {})
+        result["audit"].setdefault("metrics_ms", metrics.to_dict())
         return JSONResponse(content=result)
     except Exception as e:
         logger.error(f"/bots/restaurant-calories error: {e}")

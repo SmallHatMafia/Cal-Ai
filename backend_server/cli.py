@@ -45,7 +45,20 @@ def handle_command(command: str, args: list[str]) -> dict:
             dish_json = json.loads(args[1])
             image_token = args[2] if len(args) > 2 else (visual_json.get("_image_token") or dish_json.get("_image_token"))
             from .models.resturant_calories import restaurant_calories_pipeline
-            return restaurant_calories_pipeline(visual_json, dish_json, image_token)
+            from .pipeline import GuardrailViolation, StageMetrics
+
+            metrics = StageMetrics()
+            try:
+                result = restaurant_calories_pipeline(visual_json, dish_json, image_token, metrics=metrics)
+            except GuardrailViolation as exc:
+                return {
+                    "error": exc.message,
+                    "stage": exc.stage,
+                    "details": exc.payload or {},
+                }
+            result.setdefault("audit", {})
+            result["audit"].setdefault("metrics_ms", metrics.to_dict())
+            return result
         except Exception as e:
             return {"error": str(e)}
 

@@ -1,0 +1,26 @@
+{
+  "version": "2024-06-01",
+  "items": {
+    "cheeseburger": ["burger", "cheeseburger", "mcdouble", "double cheeseburger"],
+    "french fries": ["fries", "french fries", "world famous fries"],
+    "chicken nuggets": ["nuggets", "chicken nuggets", "mcnuggets"],
+    "soft drink": ["coke", "coca cola", "sprite", "soft drink", "drink"],
+    "barbecue sauce": ["bbq", "barbecue sauce", "tangy bbq"],
+    "ranch sauce": ["ranch", "creamy ranch"],
+    "vanilla frosty": ["frosty", "vanilla frosty"],
+    "waffle fries": ["waffle fries", "chickfila fries"],
+    "fried chicken sandwich": ["chicken sandwich", "crispy chicken sandwich", "mccrispy"],
+    "salad": ["salad", "greens"],
+    "coffee": ["coffee", "iced coffee", "latte"],
+    "water": ["water", "bottled water"],
+    "ketchup": ["ketchup", "catsup"],
+    "mustard": ["mustard"],
+    "milkshake": ["shake", "milkshake"]
+  },
+  "component_roles": {
+    "main": ["cheeseburger", "fried chicken sandwich", "salad"],
+    "sides": ["french fries", "waffle fries", "salad"],
+    "drinks": ["soft drink", "coffee", "water", "milkshake"],
+    "extras": ["barbecue sauce", "ranch sauce", "ketchup", "mustard"]
+  }
+}

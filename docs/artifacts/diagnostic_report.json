@@ -1,0 +1,28 @@
+{
+  "issues": [
+    {
+      "id": "schema-drift",
+      "severity": "critical",
+      "impact": "LLM responses broke downstream parsing",
+      "fix": "Wrap stage outputs with Pydantic schemas and canonical label normalization"
+    },
+    {
+      "id": "cross-stage-mismatch",
+      "severity": "critical",
+      "impact": "Dish determiner vs itemizer disagreement",
+      "fix": "reconcile_stage_outputs with GuardrailViolation handling"
+    },
+    {
+      "id": "portion-gap",
+      "severity": "high",
+      "impact": "No gram estimates feeding Nutritionix",
+      "fix": "estimate_portions heuristics and audit exposure"
+    },
+    {
+      "id": "latency-visibility",
+      "severity": "medium",
+      "impact": "No view into stage timings",
+      "fix": "StageMetrics timers + benchmark harness"
+    }
+  ]
+}

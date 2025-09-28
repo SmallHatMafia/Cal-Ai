@@ -28,6 +28,7 @@ backend_server/data/**
 !backend_server/data/mini/*-names.json
 backend_server/data/**/*.{npy,json}
 !backend_server/data/mini/*-names.json
+!backend_server/data/canonical_labels.json
 
 # Node / Svelte
 frontend/node_modules/

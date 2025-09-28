@@ -1,0 +1,18 @@
+{
+  "dataset": "sample_manifest",
+  "accuracy": {
+    "top1_item": null,
+    "portion_mae_g": null
+  },
+  "latency_ms": {
+    "stage_A": null,
+    "stage_B": null,
+    "stage_C": null,
+    "stage_D": null,
+    "stage_E": null,
+    "stage_F": null,
+    "e2e": null
+  },
+  "hardware": "To be filled during benchmark run",
+  "notes": "Run python -m backend_server.pipeline.benchmark path/to/manifest.json once API credentials are configured."
+}
