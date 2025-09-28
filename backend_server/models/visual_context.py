@@ -17,6 +17,7 @@ except Exception as exc:  # pragma: no cover - if not installed yet
     OpenAI = None  # type: ignore
 
 from .prompts import get_visual_context_prompt
+from ..pipeline import StageMetrics, stage_timer, normalize_visual_context
 
 # Optional image processing for faster uploads/inference
 try:  # pragma: no cover - optional perf enhancement
@@ -100,7 +101,11 @@ def _image_to_data_url(image_bytes: bytes, mime_type: str) -> str:
     return f"data:{optimized_mime};base64,{b64}"
 
 
-def analyze_visual_context_from_bytes(image_bytes: bytes, mime_type: str = "image/jpeg") -> Dict[str, Any]:
+def analyze_visual_context_from_bytes(
+    image_bytes: bytes,
+    mime_type: str = "image/jpeg",
+    metrics: Optional[StageMetrics] = None,
+) -> Dict[str, Any]:
     """
     Calls OpenAI Vision model with the Visual Context prompt and an image.
 
@@ -112,23 +117,24 @@ def analyze_visual_context_from_bytes(image_bytes: bytes, mime_type: str = "imag
     image_data_url = _image_to_data_url(image_bytes, mime_type)
 
     start = time.perf_counter()
-    response = client.chat.completions.create(
-        model=os.getenv("OPENAI_VISION_MODEL", "gpt-4o-mini"),
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Analyze the image and follow the above rules strictly."},
-                    {"type": "image_url", "image_url": {"url": image_data_url}},
-                ],
-            },
-        ],
-        temperature=float(os.getenv("STEP1_TEMPERATURE", "0.2")),
-        top_p=float(os.getenv("STEP1_TOP_P", "0.9")),
-        max_tokens=500,
-        response_format={"type": "json_object"},
-    )
+    with stage_timer("stage_A", metrics):
+        response = client.chat.completions.create(
+            model=os.getenv("OPENAI_VISION_MODEL", "gpt-4o-mini"),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Analyze the image and follow the above rules strictly."},
+                        {"type": "image_url", "image_url": {"url": image_data_url}},
+                    ],
+                },
+            ],
+            temperature=float(os.getenv("STEP1_TEMPERATURE", "0.2")),
+            top_p=float(os.getenv("STEP1_TOP_P", "0.9")),
+            max_tokens=500,
+            response_format={"type": "json_object"},
+        )
     duration_ms = int((time.perf_counter() - start) * 1000)
 
     content: Optional[str] = None
@@ -157,12 +163,17 @@ def analyze_visual_context_from_bytes(image_bytes: bytes, mime_type: str = "imag
         data = _salvage_json(content)
     # Attach duration meta for downstream visibility
     data["_duration_ms"] = duration_ms
-    return data
+    normalized = normalize_visual_context(data)
+    normalized["_duration_ms"] = duration_ms
+    return normalized
 
 
  
 
-def analyze_visual_context_from_file(image_path: str) -> Dict[str, Any]:
+def analyze_visual_context_from_file(
+    image_path: str,
+    metrics: Optional[StageMetrics] = None,
+) -> Dict[str, Any]:
     with open(image_path, "rb") as f:
         image_bytes = f.read()
     # basic mime inference
@@ -174,7 +185,7 @@ def analyze_visual_context_from_file(image_path: str) -> Dict[str, Any]:
         mime = "image/webp"
     elif ext in {".gif"}:
         mime = "image/gif"
-    return analyze_visual_context_from_bytes(image_bytes, mime)
+    return analyze_visual_context_from_bytes(image_bytes, mime, metrics=metrics)
 
 
 def _store_image_in_memory(image_bytes: bytes, mime_type: str) -> str:
@@ -184,12 +195,16 @@ def _store_image_in_memory(image_bytes: bytes, mime_type: str) -> str:
     return token
 
 
-def run_visual_context_and_forward(image_bytes: bytes, mime_type: str = "image/jpeg") -> Dict[str, Any]:
+def run_visual_context_and_forward(
+    image_bytes: bytes,
+    mime_type: str = "image/jpeg",
+    metrics: Optional[StageMetrics] = None,
+) -> Dict[str, Any]:
     """
     Entry used by pipeline: analyze image, then forward to next bot (Dish Determiner).
     Returns the Visual Context JSON for convenience; the next stage can be invoked separately.
     """
-    visual_json = analyze_visual_context_from_bytes(image_bytes, mime_type)
+    visual_json = analyze_visual_context_from_bytes(image_bytes, mime_type, metrics=metrics)
 
     # Store the image and attach token for downstream stages
     image_token = _store_image_in_memory(image_bytes, mime_type)

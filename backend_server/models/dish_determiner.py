@@ -16,6 +16,7 @@ except Exception:
 from .prompts import get_dish_determiner_prompt
 from .visual_context import ImageStore
 from .visual_context import _image_to_data_url  # reuse util
+from ..pipeline import StageMetrics, stage_timer, normalize_dish_determination
 
 
 def _extract_packaging_cues(visual_json: Dict[str, Any]) -> list[str]:
@@ -97,7 +98,10 @@ def _get_openai_client() -> OpenAI:
     return _CLIENT
 
 
-def determine_dishes_from_visual_json(visual_json: Dict[str, Any]) -> Dict[str, Any]:
+def determine_dishes_from_visual_json(
+    visual_json: Dict[str, Any],
+    metrics: Optional[StageMetrics] = None,
+) -> Dict[str, Any]:
     client = _get_openai_client()
     system_prompt = get_dish_determiner_prompt()
 
@@ -113,22 +117,23 @@ def determine_dishes_from_visual_json(visual_json: Dict[str, Any]) -> Dict[str, 
         return json.loads(t)
 
     start = time.perf_counter()
-    response = client.chat.completions.create(
-        model=os.getenv("OPENAI_TEXT_MODEL", "gpt-4o-mini"),
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": json.dumps(visual_json, ensure_ascii=False)},
-                ],
-            },
-        ],
-        temperature=float(os.getenv("STEP2_TEMPERATURE", "0.3")),
-        top_p=float(os.getenv("STEP2_TOP_P", "0.9")),
-        max_tokens=400,
-        response_format={"type": "json_object"},
-    )
+    with stage_timer("stage_B", metrics):
+        response = client.chat.completions.create(
+            model=os.getenv("OPENAI_TEXT_MODEL", "gpt-4o-mini"),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": json.dumps(visual_json, ensure_ascii=False)},
+                    ],
+                },
+            ],
+            temperature=float(os.getenv("STEP2_TEMPERATURE", "0.3")),
+            top_p=float(os.getenv("STEP2_TOP_P", "0.9")),
+            max_tokens=400,
+            response_format={"type": "json_object"},
+        )
     duration_ms = int((time.perf_counter() - start) * 1000)
 
     content = response.choices[0].message.content if response.choices else None
@@ -139,13 +144,18 @@ def determine_dishes_from_visual_json(visual_json: Dict[str, Any]) -> Dict[str, 
     except json.JSONDecodeError:
         data = _salvage_json(content)
     data["_duration_ms"] = duration_ms
-    # carry restaurant name into downstream when available
-    if "restaurant_name" in data and data.get("restaurant_name"):
-        data["restaurant_name"] = data["restaurant_name"].strip()
-    return data
+    normalized = normalize_dish_determination(data)
+    normalized["_duration_ms"] = duration_ms
+    if normalized.get("restaurant_name"):
+        normalized["restaurant_name"] = normalized["restaurant_name"].strip()
+    return normalized
 
 
-def determine_dishes_from_visual_json_and_image(visual_json: Dict[str, Any], image_token: Optional[str]) -> Dict[str, Any]:
+def determine_dishes_from_visual_json_and_image(
+    visual_json: Dict[str, Any],
+    image_token: Optional[str],
+    metrics: Optional[StageMetrics] = None,
+) -> Dict[str, Any]:
     client = _get_openai_client()
     system_prompt = get_dish_determiner_prompt()
 
@@ -165,17 +175,18 @@ def determine_dishes_from_visual_json_and_image(visual_json: Dict[str, Any], ima
             content_parts.append({"type": "image_url", "image_url": {"url": data_url}})
 
     start = time.perf_counter()
-    response = client.chat.completions.create(
-        model=os.getenv("OPENAI_VISION_MODEL", "gpt-4o-mini"),
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": content_parts},
-        ],
-        temperature=float(os.getenv("STEP2_TEMPERATURE", "0.3")),
-        top_p=float(os.getenv("STEP2_TOP_P", "0.9")),
-        max_tokens=400,
-        response_format={"type": "json_object"},
-    )
+    with stage_timer("stage_B", metrics):
+        response = client.chat.completions.create(
+            model=os.getenv("OPENAI_VISION_MODEL", "gpt-4o-mini"),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": content_parts},
+            ],
+            temperature=float(os.getenv("STEP2_TEMPERATURE", "0.3")),
+            top_p=float(os.getenv("STEP2_TOP_P", "0.9")),
+            max_tokens=400,
+            response_format={"type": "json_object"},
+        )
     duration_ms = int((time.perf_counter() - start) * 1000)
 
     content = response.choices[0].message.content if response.choices else None
@@ -214,5 +225,9 @@ def determine_dishes_from_visual_json_and_image(visual_json: Dict[str, Any], ima
     except Exception:
         # Non-fatal
         pass
-    return data
+    normalized = normalize_dish_determination(data)
+    normalized["_duration_ms"] = duration_ms
+    if normalized.get("restaurant_name"):
+        normalized["restaurant_name"] = normalized["restaurant_name"].strip()
+    return normalized
 

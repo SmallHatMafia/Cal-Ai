@@ -19,6 +19,14 @@ except Exception:
 
 # Defer importing prompts until runtime to avoid import-time failures
 from .visual_context import ImageStore, _image_to_data_url
+from ..pipeline import (
+    GuardrailViolation,
+    StageMetrics,
+    build_final_report,
+    estimate_portions,
+    reconcile_stage_outputs,
+    stage_timer,
+)
 
 # Nutritionix search tuning to minimize stalls while enforcing brand correctness
 _NUTRITIONIX_REQ_TIMEOUT_S: int = 6
@@ -672,7 +680,12 @@ def _normalize_item_name_for_brand(brand_name: Optional[str], entry: Dict[str, A
     return None
 
 
-def itemize_restaurant_items(visual_json: Dict[str, Any], dish_json: Dict[str, Any], image_token: Optional[str]) -> Dict[str, Any]:
+def itemize_restaurant_items(
+    visual_json: Dict[str, Any],
+    dish_json: Dict[str, Any],
+    image_token: Optional[str],
+    metrics: Optional[StageMetrics] = None,
+) -> Dict[str, Any]:
     """Use OpenAI to produce Nutritionix-ready list of items from visual + dish JSON and image."""
     client = _get_openai_client()
     # Lazy import to prevent module import errors if prompts has transient issues
@@ -700,17 +713,18 @@ def itemize_restaurant_items(visual_json: Dict[str, Any], dish_json: Dict[str, A
             parts.append({"type": "image_url", "image_url": {"url": data_url}})
 
     start = time.perf_counter()
-    response = client.chat.completions.create(
-        model=os.getenv("OPENAI_VISION_MODEL", "gpt-4o-mini"),
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": parts},
-        ],
-        temperature=float(os.getenv("STEP3_TEMPERATURE", "0.15")),
-        top_p=float(os.getenv("STEP3_TOP_P", "0.85")),
-        max_tokens=800,
-        response_format={"type": "json_object"},
-    )
+    with stage_timer("stage_C", metrics):
+        response = client.chat.completions.create(
+            model=os.getenv("OPENAI_VISION_MODEL", "gpt-4o-mini"),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": parts},
+            ],
+            temperature=float(os.getenv("STEP3_TEMPERATURE", "0.15")),
+            top_p=float(os.getenv("STEP3_TOP_P", "0.85")),
+            max_tokens=800,
+            response_format={"type": "json_object"},
+        )
     content = response.choices[0].message.content if response.choices else None
     if not content:
         raise RuntimeError("No content from OpenAI for restaurant itemization")
@@ -754,7 +768,10 @@ def _cache_key_for_item(brand: Optional[str], name: Optional[str], desc: Optiona
     return f"{_norm_brand(brand or '')}|{(name or '').strip().lower()}|{(desc or '').strip().lower()}"
 
 
-def fetch_nutritionix_macros(itemized: Dict[str, Any]) -> Dict[str, Any]:
+def fetch_nutritionix_macros(
+    itemized: Dict[str, Any],
+    metrics: Optional[StageMetrics] = None,
+) -> Dict[str, Any]:
     brand = itemized.get("restaurant_name")
     results: List[Dict[str, Any]] = []
     start = time.perf_counter()
@@ -823,26 +840,53 @@ def fetch_nutritionix_macros(itemized: Dict[str, Any]) -> Dict[str, Any]:
         return result
 
     # Bound concurrency to avoid API rate limits; 6 is a good starting point
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, max(1, len(items)))) as pool:
-        futures = [pool.submit(process_entry, entry) for entry in items]
-        for fut in concurrent.futures.as_completed(futures):
-            results.append(fut.result())
+    with stage_timer("stage_E", metrics):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, max(1, len(items)))) as pool:
+            futures = [pool.submit(process_entry, entry) for entry in items]
+            for fut in concurrent.futures.as_completed(futures):
+                results.append(fut.result())
     duration_ms = int((time.perf_counter() - start) * 1000)
     return {"restaurant_name": brand, "results": results, "_duration_ms": duration_ms}
 
 
-def restaurant_calories_pipeline(visual_json: Dict[str, Any], dish_json: Dict[str, Any], image_token: Optional[str]) -> Dict[str, Any]:
-    # Only proceed if dish_json indicates restaurant
+def restaurant_calories_pipeline(
+    visual_json: Dict[str, Any],
+    dish_json: Dict[str, Any],
+    image_token: Optional[str],
+    metrics: Optional[StageMetrics] = None,
+) -> Dict[str, Any]:
+    metrics = metrics or StageMetrics()
     src = (dish_json or {}).get("source")
     if src != "RESTAURANT":
-        return {"error": "Not a restaurant meal", "results": []}
+        raise GuardrailViolation("StageB", "Dish determiner did not classify meal as RESTAURANT")
 
-    # Ensure restaurant name carries through; prefer Dish Determiner's brand if present
-    itemized = itemize_restaurant_items(visual_json, dish_json, image_token)
+    itemized = itemize_restaurant_items(visual_json, dish_json, image_token, metrics=metrics)
     dd_brand = (dish_json or {}).get("restaurant_name")
     if dd_brand:
         itemized["restaurant_name"] = dd_brand
-    macros = fetch_nutritionix_macros(itemized)
-    return {"itemized": itemized, "macros": macros}
+
+    try:
+        normalized_itemized, reconciliation = reconcile_stage_outputs(dish_json, itemized)
+    except GuardrailViolation as exc:
+        reconciliation = exc.payload or {"status": "UNRESOLVED", "actions": ["REQUEST_USER_INPUT"], "details": {}}
+        reconciliation["status"] = "UNRESOLVED"
+        normalized_itemized = itemized
+
+    portion_estimates = estimate_portions(normalized_itemized, metrics=metrics)
+
+    macros = fetch_nutritionix_macros(normalized_itemized, metrics=metrics)
+
+    with stage_timer("stage_F", metrics):
+        final_report = build_final_report(dish_json, normalized_itemized, macros, reconciliation)
+
+    final_report.setdefault("audit", {})
+    final_report["audit"].setdefault("reconciliation", reconciliation)
+    final_report["audit"]["metrics_ms"] = metrics.to_dict()
+    final_report["audit"]["portion_estimates_g"] = portion_estimates
+    final_report["itemized"] = normalized_itemized
+    final_report["macros"] = macros
+    final_report["_itemized"] = normalized_itemized
+    final_report["_macros"] = macros
+    return final_report
 
 
