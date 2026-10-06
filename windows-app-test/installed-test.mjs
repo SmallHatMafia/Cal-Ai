@@ -7,9 +7,7 @@ const root=process.cwd();
 await stageInstaller(root);
 const script=String.raw`
 $ErrorActionPreference='Stop'
-$p=Start-Process -FilePath $env:TEST_INSTALLER -ArgumentList '--silent' -PassThru
-if(-not $p.WaitForExit(120000)){throw 'INSTALL_TIMEOUT'}
-Write-Output ('InstallerExit='+$p.ExitCode)
+& (Join-Path $PWD 'windows-app-test/Hidden-Install.ps1') -Executable $env:TEST_INSTALLER
 $exe=Get-Item (Join-Path $env:LOCALAPPDATA 'QuickBooksAdvanced\app-3.10.4\QuickBooks Online.exe')
 if(-not $exe){throw 'INSTALLED_EXE_MISSING'}
 Get-Process -Name 'QuickBooks Online' -ErrorAction SilentlyContinue | Stop-Process -Force
