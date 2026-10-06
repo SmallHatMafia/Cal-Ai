@@ -26,7 +26,7 @@ for(let i=0;i<2;i++){
    ['storage-state',()=>app.context.storageState()]
   ]){
    try { await fn();console.log('CAPTURE_STEP_PASS '+name); }
-   catch(e){ console.log('CAPTURE_STEP_FAIL '+name+' '+String(e.message).replace(/https?:\\/\\/\\S+/g,'[URL]').slice(0,600)); throw Error('CAPTURE_REPRO_'+name); }
+   catch(e){ console.log('CAPTURE_STEP_FAIL '+name+' '+String(e.message).split('https:')[0].slice(0,600)); throw Error('CAPTURE_REPRO_'+name); }
   }
  }finally{await app.close();}
 }
