@@ -28,6 +28,7 @@ public static class QboAppProbe {
  [DllImport("kernel32.dll")] public static extern bool TerminateJobObject(IntPtr job,uint code);
  [DllImport("kernel32.dll")] public static extern bool TerminateProcess(IntPtr process,uint code);
  [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr handle);
+ [DllImport("kernel32.dll")] public static extern bool GetExitCodeProcess(IntPtr process,out uint code);
  [DllImport("kernel32.dll")] public static extern uint WaitForSingleObject(IntPtr handle,uint ms);
  static void Check(bool ok){if(!ok)throw new Win32Exception(Marshal.GetLastWin32Error());}
  public static string Name(IntPtr obj){var s=new StringBuilder(512);int n;Check(GetUserObjectInformation(obj,2,s,1024,out n));return s.ToString();}
@@ -80,7 +81,7 @@ try {
  $job=[QboAppProbe]::Job()
  $desktopPath=[QboAppProbe]::Name($station)+'\'+$desktopName
  $step='launch'
- $args='--remote-debugging-address=127.0.0.1 --remote-debugging-port='+$Port+' --disable-background-networking --no-first-run'
+ $args='--remote-debugging-address=127.0.0.1 --remote-debugging-port='+$Port+' --disable-background-networking --no-first-run --enable-logging --log-file=probe-chromium.log'
  $processInfo=[QboAppProbe]::Start($job,$Executable,$args,$desktopPath,(Split-Path -Parent $Executable))
  $ownsProtocol=$true
  $started=Get-Date
@@ -88,7 +89,7 @@ try {
  for($attempt=0;$attempt -lt 50;$attempt++){
   try{$result.isolated=([QboAppProbe]::Name([QboAppProbe]::GetThreadDesktop($processInfo.tid)) -eq $desktopName)}catch{}
   if($result.isolated){break}
-  if([QboAppProbe]::WaitForSingleObject($processInfo.process,0) -eq 0){$result.processExited=$true;break}
+  if([QboAppProbe]::WaitForSingleObject($processInfo.process,0) -eq 0){$result.processExited=$true;[uint32]$exitCode=0;[void][QboAppProbe]::GetExitCodeProcess($processInfo.process,[ref]$exitCode);$result.exitCode=$exitCode;break}
   Start-Sleep -Milliseconds 100
  }
  if(-not $result.isolated){throw 'ISOLATION_FAILED'}
@@ -135,4 +136,7 @@ try {
   if($command -and $command.StartsWith(('"'+$Executable+'"'),[StringComparison]::OrdinalIgnoreCase)){Remove-Item $protocol -Recurse -Force}
  }
 }
+$log=Join-Path (Split-Path -Parent $Executable) 'probe-chromium.log'
+if(Test-Path $log){$result.launchLog=(Get-Content $log -Tail 12) -join '
+'}
 $result | ConvertTo-Json -Compress | Write-Output
