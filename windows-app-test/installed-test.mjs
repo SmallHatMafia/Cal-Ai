@@ -23,6 +23,8 @@ try {
  $log=Join-Path $env:APPDATA 'QuickBooks Advanced\logs\main.log'
  if(Test-Path $log){Get-Content $log -Tail 30}
 } finally {Get-Process -Name 'QuickBooks Online' -ErrorAction SilentlyContinue | Stop-Process -Force}
+Start-Sleep -Seconds 2
+& (Join-Path $PWD 'windows-app-test/Installed-Private-Probe.ps1') -Executable $exe.FullName -Port 19224
 `;
 const child=spawn('powershell.exe',['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{env:{...process.env,TEST_INSTALLER:join(root,'downloads',officialInstaller.filename)},stdio:'inherit',timeout:200000});
 child.on('exit',code=>{process.exitCode=code??1});
