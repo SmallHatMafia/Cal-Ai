@@ -15,7 +15,10 @@ jobs:
           sparse-checkout: windows-app-test
       - name: Test official app in a noninteractive window station
         shell: powershell
-        run: node windows-app-test/installed-test.mjs
+        run: |
+          npm install --no-save --prefix windows-app-test playwright-core@1.55.1
+          '{"testOnly":true}' | Set-Content windows-app-test/config.json
+          node windows-app-test/install-native-app.mjs --explicit-setup
 
       - name: Verify production-style backend twice
         shell: powershell
