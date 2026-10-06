@@ -22,7 +22,7 @@ async function matches(path,spec){
   return hash.digest('hex')===spec.sha256;
 }
 export async function stageInstaller(root,spec=officialInstaller,fetcher=fetch,verifyPublisher=verifyIntuitPublisher){
-  const dir=join(root,'downloads'),path=join(dir,spec.filename),partial=path+'.part';
+  const dir=join(root,'downloads'),path=join(dir,spec.filename),partial=path+'.part.exe';
   await mkdir(dir,{recursive:true});
   try{
     if(!await matches(path,spec)){
