@@ -26,7 +26,10 @@ for(let i=0;i<2;i++){
    ['storage-state',()=>app.context.storageState()]
   ]){
    try { await fn();console.log('CAPTURE_STEP_PASS '+name); }
-   catch(e){ console.log('CAPTURE_STEP_FAIL '+name+' '+String(e.message).split('https:')[0].slice(0,600)); throw Error('CAPTURE_REPRO_'+name); }
+   catch(e){ console.log('CAPTURE_STEP_FAIL '+name+' '+String(e.message).split('https:')[0].slice(0,600)); if(name!=='storage-state')throw Error('CAPTURE_REPRO_'+name); }
   }
+  const cdp=await app.context.browser().newBrowserCDPSession();
+  try{await cdp.send('Browser.close');console.log('GRACEFUL_CLOSE_SUPPORTED');}
+  catch(e){console.log('GRACEFUL_CLOSE_UNSUPPORTED '+String(e.message).split('https:')[0].slice(0,300));}
  }finally{await app.close();}
 }
