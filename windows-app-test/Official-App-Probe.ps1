@@ -17,7 +17,7 @@ public static class QboAppProbe {
  [DllImport("user32.dll")] public static extern bool CloseWindowStation(IntPtr station);
  [DllImport("user32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern IntPtr CreateDesktop(string name,IntPtr device,IntPtr mode,uint flags,uint access,IntPtr security);
  [DllImport("user32.dll")] public static extern bool CloseDesktop(IntPtr desktop);
- [DllImport("user32.dll")] public static extern IntPtr GetThreadDesktop(uint thread);
+ [DllImport("user32.dll",SetLastError=true)] public static extern IntPtr GetThreadDesktop(uint thread);
  [DllImport("user32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool GetUserObjectInformation(IntPtr obj,int index,StringBuilder text,int length,out int needed);
  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern IntPtr CreateJobObject(IntPtr security,string name);
  [DllImport("kernel32.dll",SetLastError=true)] static extern bool SetInformationJobObject(IntPtr job,int kind,IntPtr value,uint length);
@@ -84,7 +84,13 @@ try {
  $processInfo=[QboAppProbe]::Start($job,$Executable,$args,$desktopPath,(Split-Path -Parent $Executable))
  $ownsProtocol=$true
  $started=Get-Date
- $result.isolated=([QboAppProbe]::Name([QboAppProbe]::GetThreadDesktop($processInfo.tid)) -eq $desktopName)
+ $step='desktop-check'
+ for($attempt=0;$attempt -lt 50;$attempt++){
+  try{$result.isolated=([QboAppProbe]::Name([QboAppProbe]::GetThreadDesktop($processInfo.tid)) -eq $desktopName)}catch{}
+  if($result.isolated){break}
+  if([QboAppProbe]::WaitForSingleObject($processInfo.process,0) -eq 0){$result.processExited=$true;break}
+  Start-Sleep -Milliseconds 100
+ }
  if(-not $result.isolated){throw 'ISOLATION_FAILED'}
  $step='observe'
  $cpuAtIdle=$null;$idleStarted=$null
