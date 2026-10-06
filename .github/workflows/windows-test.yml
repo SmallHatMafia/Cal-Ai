@@ -14,5 +14,5 @@ jobs:
           persist-credentials: false
           sparse-checkout: windows-app-test
       - name: Test official app in a noninteractive window station
-        shell: pwsh
+        shell: powershell
         run: node windows-app-test/probe.mjs --test
