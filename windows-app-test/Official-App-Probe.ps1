@@ -40,7 +40,8 @@ public static class QboAppProbe {
   try{
    var limits=new Extended();limits.basic.flags=0x2000|0x200|0x20;limits.basic.priority=0x4000;limits.jobMemory=new UIntPtr(1073741824);
    Set(h,9,limits); // kill on close, 1 GiB committed memory ceiling, below-normal priority
-   Set(h,4,(uint)0xFF); // no external USER handles, desktop switching, clipboard or system changes
+   // CI differential test: retain private station, omit extra job UI limits.
+   // Set(h,4,(uint)0xFF); // no external USER handles, desktop switching, clipboard or system changes
    return h;
   }catch{CloseHandle(h);throw;}
  }
