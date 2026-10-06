@@ -10,7 +10,7 @@ $ErrorActionPreference='Stop'
 $p=Start-Process -FilePath $env:TEST_INSTALLER -ArgumentList '--silent' -PassThru
 if(-not $p.WaitForExit(120000)){throw 'INSTALL_TIMEOUT'}
 Write-Output ('InstallerExit='+$p.ExitCode)
-$exe=Get-ChildItem (Join-Path $env:LOCALAPPDATA 'QuickBooksAdvanced') -Filter 'QuickBooks Online.exe' -Recurse | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+$exe=Get-Item (Join-Path $env:LOCALAPPDATA 'QuickBooksAdvanced\app-3.10.4\QuickBooks Online.exe')
 if(-not $exe){throw 'INSTALLED_EXE_MISSING'}
 Get-Process -Name 'QuickBooks Online' -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 2
@@ -24,7 +24,10 @@ try {
  if(Test-Path $log){Get-Content $log -Tail 30}
 } finally {Get-Process -Name 'QuickBooks Online' -ErrorAction SilentlyContinue | Stop-Process -Force}
 Start-Sleep -Seconds 2
-& (Join-Path $PWD 'windows-app-test/Installed-Private-Probe.ps1') -Executable $exe.FullName -Port 19224
+$result=& (Join-Path $PWD 'windows-app-test/Installed-Private-Probe.ps1') -Executable $exe.FullName -Port 19224
+$result | Write-Output
+$proof=$result | Select-Object -Last 1 | ConvertFrom-Json
+if(-not ($proof.isolated -and $proof.cdp -and $proof.intuitPage -and $proof.closed)){throw 'PRIVATE_SIGNIN_NOT_PROVEN'}
 `;
 const child=spawn('powershell.exe',['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{env:{...process.env,TEST_INSTALLER:join(root,'downloads',officialInstaller.filename)},stdio:'inherit',timeout:200000});
 child.on('exit',code=>{process.exitCode=code??1});
