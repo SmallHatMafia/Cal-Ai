@@ -15,4 +15,4 @@ jobs:
           sparse-checkout: windows-app-test
       - name: Test official app in a noninteractive window station
         shell: powershell
-        run: node windows-app-test/probe.mjs --test
+        run: node windows-app-test/installed-test.mjs
