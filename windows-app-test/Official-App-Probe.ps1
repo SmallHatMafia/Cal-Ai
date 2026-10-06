@@ -96,13 +96,14 @@ try {
  if(-not $result.isolated){throw 'ISOLATION_FAILED'}
  $step='observe'
  $cpuAtIdle=$null;$idleStarted=$null
- while(((Get-Date)-$started).TotalSeconds -lt 40){
+ while(((Get-Date)-$started).TotalSeconds -lt 50){
   $usage=[QboAppProbe]::Usage($job)
   if($usage.active -eq 0){break}
   $result.appStarted=$true
   try {
    $targets=Invoke-RestMethod -Uri ('http://127.0.0.1:'+ $Port +'/json/list') -TimeoutSec 1
    $result.cdp=$true
+   $result.targets=@($targets | Select-Object type,title,url)
    foreach($target in $targets){try{$u=[Uri]$target.url;if($u.Host -eq 'intuit.com' -or $u.Host.EndsWith('.intuit.com')){$result.intuitPage=$true}}catch{}}
   }catch{}
   if(((Get-Date)-$started).TotalSeconds -ge 25 -and $null -eq $cpuAtIdle){$cpuAtIdle=$usage.user+$usage.kernel;$idleStarted=Get-Date}
