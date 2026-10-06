@@ -1,0 +1,18 @@
+name: Isolated Windows app compatibility test
+on:
+  push:
+    branches: [qbo-isolation-check]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: windows-2022
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          sparse-checkout: windows-app-test
+      - name: Test official app in a noninteractive window station
+        shell: pwsh
+        run: node windows-app-test/probe.mjs --test
