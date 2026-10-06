@@ -20,5 +20,13 @@ for(let i=0;i<2;i++){
   }
   if(!ready)throw Error('SIGNIN_CONTROLS_NOT_READY');
   console.log('NATIVE_BACKEND_SIGNIN_CONTROLS_PASS cycle='+i);
+  for(const [name,fn] of [
+   ['binding',()=>app.context.exposeBinding('__qboRememberLogin',()=>{})],
+   ['init-script',()=>app.context.addInitScript(()=>{})],
+   ['storage-state',()=>app.context.storageState()]
+  ]){
+   try { await fn();console.log('CAPTURE_STEP_PASS '+name); }
+   catch(e){ console.log('CAPTURE_STEP_FAIL '+name+' '+String(e.message).replace(/https?:\\/\\/\\S+/g,'[URL]').slice(0,600)); throw Error('CAPTURE_REPRO_'+name); }
+  }
  }finally{await app.close();}
 }
