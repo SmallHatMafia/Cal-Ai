@@ -46,12 +46,12 @@ export async function stageInstaller(root,spec=officialInstaller,fetcher=fetch,v
 }
 async function verifyIntuitPublisher(path){
   if(process.platform!=='win32')throw Error('WINDOWS_REQUIRED');
-  const script="$ErrorActionPreference='Stop';[Console]::InputEncoding=[Text.UTF8Encoding]::new($false);$path=[Console]::In.ReadToEnd();$s=Get-AuthenticodeSignature -LiteralPath $path;if($s.Status -ne 'Valid'){exit 1};$name=$s.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName,$false);if($name -notmatch '^Intuit(,)? Inc\\.?$'){exit 2};exit 0";
+  const script="$ErrorActionPreference='Stop';[Console]::InputEncoding=[Text.UTF8Encoding]::new($false);$path=[Console]::In.ReadToEnd();$s=Get-AuthenticodeSignature -LiteralPath $path;Write-Output ('SignatureStatus='+$s.Status+'; '+$s.StatusMessage);if($s.Status -ne 'Valid'){exit 1};$name=$s.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName,$false);Write-Output ('Publisher='+$name);if($name -notmatch '^Intuit(,)? Inc\\.?$'){exit 2};exit 0";
   await new Promise((resolve,reject)=>{
     const child=spawn(join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe'),
       ['-NoLogo','-NoProfile','-NonInteractive','-WindowStyle','Hidden','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],
-      {windowsHide:true,stdio:['pipe','ignore','ignore'],timeout:30000});
-    child.once('error',()=>reject(Error('SIGNATURE_CHECK_FAILED')));
+      {windowsHide:true,stdio:['pipe','pipe','pipe'],timeout:30000});
+    child.stdout.on('data',b=>console.log(b.toString()));child.stderr.on('data',b=>console.log(b.toString()));child.once('error',()=>reject(Error('SIGNATURE_CHECK_FAILED')));
     child.stdin.once('error',()=>reject(Error('SIGNATURE_CHECK_FAILED')));
     child.once('close',code=>code===0?resolve():reject(Error('SIGNATURE_CHECK_FAILED')));
     child.stdin.end(path);
