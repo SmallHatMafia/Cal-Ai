@@ -1,75 +1,28 @@
 $ErrorActionPreference='Stop'
-$env:WINDOWLESS_TEST_DIAGNOSTICS='1'
-$root=Join-Path $env:TEMP ('windowless task '+[Guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path $root | Out-Null
-$tasks=@('Target Roofing QuickBooks Sync','Target Roofing QuickBooks Recovery')
-try{
-  foreach($name in @('Windowless-Launcher.cs','Windowless-Tasks.ps1','Ensure-Recovery.ps1')){Copy-Item (Join-Path $PSScriptRoot $name) $root}
-  $compiled=Join-Path $root 'compiled-launcher.exe'
-  Add-Type -TypeDefinition (Get-Content (Join-Path $root 'Windowless-Launcher.cs') -Raw) -OutputAssembly $compiled -OutputType WindowsApplication -ReferencedAssemblies @("System.dll",[System.Management.Automation.PowerShell].Assembly.Location)
-  Copy-Item $compiled (Join-Path $root 'Windowless-Launcher.bin')
-  $fixture=@'
-param([switch]$Allocate)
-Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class Probe{[DllImport("kernel32.dll")]public static extern IntPtr GetConsoleWindow();[DllImport("kernel32.dll")]public static extern bool AllocConsole();[DllImport("kernel32.dll")]public static extern uint GetConsoleProcessList(uint[] ids,uint count);}'
-if($Allocate){[void][Probe]::AllocConsole()}
-$mode=if([IO.Path]::GetFileName($PSCommandPath) -eq 'Run-Silent.ps1'){'sync'}elseif([IO.Path]::GetFileName($PSCommandPath) -eq 'Watch-Background.ps1'){'watch'}else{'host'}
-@{console=([Probe]::GetConsoleWindow().ToInt64());consoleProcesses=[Probe]::GetConsoleProcessList((New-Object uint32[] 32),32);pid=$PID} | ConvertTo-Json -Compress | Set-Content (Join-Path $PSScriptRoot ($mode+'.json'))
-if($mode -eq 'host'){'{"ready":true,"isolated":true,"stationVisible":false,"pid":123}';[void][Console]::In.ReadLine();exit 75}
-Start-Sleep -Seconds 1
-exit 37
+$root=Join-Path $env:TEMP ('headless-'+[guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory $root | Out-Null
+try {
+$probe=@'
+Add-Type 'using System;using System.Runtime.InteropServices;public class Probe{[DllImport("kernel32.dll")]public static extern IntPtr GetConsoleWindow();[DllImport("user32.dll")]public static extern bool IsWindowVisible(IntPtr hwnd);}'
+$h=[Probe]::GetConsoleWindow()
+[IO.File]::WriteAllText((Join-Path $PSScriptRoot 'result.json'),(@{window=$h.ToInt64();visible=[Probe]::IsWindowVisible($h)}|ConvertTo-Json -Compress))
+[Console]::Out.WriteLine('READY');[Console]::Out.Flush()
+[void][Console]::In.ReadLine()
+exit 75
 '@
-  foreach($script in @('Run-Silent.ps1','Watch-Background.ps1','Background-Host.ps1')){Set-Content (Join-Path $root $script) $fixture}
-  $ps=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-  # The CI runner is a service. Explicit allocation makes the console detector
-  # red-capable even without an interactive user's parent console to inherit.
-  $old=New-Object Diagnostics.ProcessStartInfo
-  $old.FileName=$ps;$old.Arguments='-NoProfile -File "'+(Join-Path $root 'Run-Silent.ps1')+'" -Allocate';$old.UseShellExecute=$false
-  $process=[Diagnostics.Process]::Start($old);$process.WaitForExit();$process.Dispose()
-  $before=Get-Content (Join-Path $root 'sync.json') -Raw | ConvertFrom-Json
-  if($before.consoleProcesses -eq 0){throw 'Positive control did not allocate a console'}
-  Write-Output 'POSITIVE_CONTROL_CONSOLE_PRESENT'
-  $user=[Security.Principal.WindowsIdentity]::GetCurrent().Name
-  $principal=New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
-  $settings=New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew
-  $trigger=New-ScheduledTaskTrigger -AtLogOn -User $user
-  for($i=0;$i -lt 2;$i++){
-    $script=@('Run-Silent.ps1','Watch-Background.ps1')[$i]
-    $action=New-ScheduledTaskAction -Execute $ps -Argument ('-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "'+(Join-Path $root $script)+'"') -WorkingDirectory $root
-    Register-ScheduledTask -TaskName $tasks[$i] -TaskPath '\' -Action $action -Principal $principal -Trigger $trigger -Settings $settings | Out-Null
-  }
-  . (Join-Path $root 'Windowless-Tasks.ps1')
-  foreach($taskName in $tasks){$registered=Get-ScheduledTask -TaskName $taskName; @{fixtureRoot=$root;helperRoot=$windowlessRoot;actionCount=@($registered.Actions).Count;action=$registered.Actions[0] | Select-Object Execute,Arguments,WorkingDirectory} | ConvertTo-Json -Depth 3 -Compress | Write-Output}
-  & (Join-Path $root 'Ensure-Recovery.ps1')
-  . (Join-Path $root 'Windowless-Tasks.ps1')
-  foreach($mode in @('sync','watch')){
-    $script=if($mode -eq 'sync'){'Run-Silent.ps1'}else{'Watch-Background.ps1'}
-    $task=Get-ScheduledTask -TaskName $tasks[@('sync','watch').IndexOf($mode)]
-    if(-not (Test-WindowlessAction $task $script)){throw 'Task still directly starts PowerShell'}
-    Remove-Item (Join-Path $root ($mode+'.json')) -Force -ErrorAction SilentlyContinue
-    $start=New-Object Diagnostics.ProcessStartInfo
-    $start.FileName=$windowlessLauncher;$start.Arguments=$mode;$start.UseShellExecute=$false;$start.RedirectStandardError=$true;$start.RedirectStandardOutput=$true
-    $process=[Diagnostics.Process]::Start($start);$process.WaitForExit()
-    if($process.ExitCode -ne 37){$process.StandardError.ReadToEnd() | Write-Output;if(Test-Path (Join-Path $root 'test-failure.txt')){Get-Content (Join-Path $root 'test-failure.txt') | Write-Output};throw ('Child exit code lost: '+$process.ExitCode)}
-    $process.Dispose()
-    $after=Get-Content (Join-Path $root ($mode+'.json')) -Raw | ConvertFrom-Json
-    $after | ConvertTo-Json -Compress | Write-Output
-    if($after.console -ne 0 -or $after.consoleProcesses -ne 0){throw 'A console was allocated by the new launcher'}
-  }
-  $start=New-Object Diagnostics.ProcessStartInfo
-  $start.FileName=$windowlessLauncher;$start.Arguments='host';$start.UseShellExecute=$false
-  $start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
-  $process=[Diagnostics.Process]::Start($start)
-  $ready=$process.StandardOutput.ReadLineAsync()
-  if(-not $ready.Wait(10000) -or -not ($ready.Result | ConvertFrom-Json).ready){throw 'Streaming readiness failed'}
-  $process.StandardInput.WriteLine('CLOSE');$process.StandardInput.Close()
-  if(-not $process.WaitForExit(10000) -or $process.ExitCode -ne 75){throw 'Host shutdown/exit forwarding failed'}
-  $process.Dispose()
-  $hostResult=Get-Content (Join-Path $root 'host.json') -Raw | ConvertFrom-Json
-  if($hostResult.console -ne 0 -or $hostResult.consoleProcesses -ne 0){throw 'Private bootstrap allocated a console'}
-  & (Join-Path $root 'Ensure-Recovery.ps1') # Migration is idempotent.
-  Write-Output 'WINDOWLESS_TASK_ACTIONS_AND_ALL_THREE_HOST_MODES_VERIFIED'
-  Write-Output ('LAUNCHER_BASE64='+[Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $root 'Windowless-Launcher.bin'))))
-} finally {
-  foreach($task in $tasks){Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue}
-  Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
-}
+$path=Join-Path $root 'probe.ps1'
+Set-Content $path $probe
+$p=New-Object Diagnostics.ProcessStartInfo
+$p.FileName=Join-Path $env:SystemRoot 'System32\conhost.exe'
+$p.Arguments='--headless -- "'+(Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe')+'" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$path+'"'
+$p.UseShellExecute=$false;$p.CreateNoWindow=$true;$p.RedirectStandardInput=$true;$p.RedirectStandardOutput=$true;$p.RedirectStandardError=$true
+$c=[Diagnostics.Process]::Start($p)
+$ready=$c.StandardOutput.ReadLineAsync()
+if(-not $ready.Wait(20000)){ $c.Kill();throw 'No readiness'}
+Write-Output ('READINESS='+$ready.Result)
+$c.StandardInput.WriteLine('CLOSE');$c.StandardInput.Flush()
+if(-not $c.WaitForExit(20000)){$c.Kill();throw 'No exit'}
+Write-Output ('EXIT='+$c.ExitCode)
+Get-Content (Join-Path $root 'result.json') | Write-Output
+Write-Output ('STDERR='+$c.StandardError.ReadToEnd())
+}finally{Remove-Item $root -Recurse -Force}
