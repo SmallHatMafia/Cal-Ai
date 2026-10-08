@@ -46,6 +46,8 @@ $timer.Start()
  $stdout=Join-Path $env:RUNNER_TEMP 'qbo-visibility-out.txt'
  $stderr=Join-Path $env:RUNNER_TEMP 'qbo-visibility-err.txt'
  $runner=Start-Process -FilePath $Node -ArgumentList @('windows-app-test/visibility-test.mjs','--run') -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+ # Retain the process handle before exit so Windows PowerShell can read its code.
+ $null=$runner.Handle
  $deadline=(Get-Date).AddMinutes(4)
  $samples=0
  while(-not $runner.HasExited -and (Get-Date) -lt $deadline){
