@@ -12,8 +12,10 @@ const child=async(command,args)=>{
  if(code!==0)throw Error('CI_CHILD_FAILED');
 };
 if(process.argv[2]!=='--run'){
- await stageInstaller(root);
- await child('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',join(root,'Hidden-Install.ps1'),'-Executable',join(root,'downloads',officialInstaller.filename)]);
+ if(process.env.QBO_CI_REUSE_INSTALL!=='1'){
+  await stageInstaller(root);
+  await child('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',join(root,'Hidden-Install.ps1'),'-Executable',join(root,'downloads',officialInstaller.filename)]);
+ }
  await child('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',join(root,'visibility-test.ps1'),'-Node',process.execPath]);
 }else{
  const executable=join(process.env.LOCALAPPDATA,'QuickBooksAdvanced','app-3.10.4','QuickBooks Online.exe');
@@ -26,7 +28,9 @@ if(process.argv[2]!=='--run'){
    console.log(JSON.stringify({cycle,windows: facts.windows.length,contents:facts.contents.map(c=>({id:c.id,type:c.type})),resources:app.context.qboNativeMetrics()}));
    if(facts.windows.length===0)throw Error('NO_APP_WINDOWS_OBSERVED');
    for(const mode of ['show','popup','external']){
-    console.log(JSON.stringify({exercise:await app.context.qboVisibilityExercise(mode)}));
+    const exercise=await app.context.qboVisibilityExercise(mode);
+    console.log(JSON.stringify({exercise}));
+    if(process.env.QBO_CI_HIDDEN_POLICY==='1'&&(exercise.visible||mode==='external'&&!exercise.blocked))throw Error('HIDDEN_POLICY_ASSERTION_FAILED');
     await new Promise(resolve=>setTimeout(resolve,5000));
    }
   }finally{if(app)await app.close();}

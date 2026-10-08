@@ -1,15 +1,16 @@
 // Direct control of the owned Electron main process. No public command endpoint.
+import {installInvisiblePolicy} from './invisible-policy.mjs';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const allowed=url=>{try{return /^https:\/\/(?:c[0-9]+\.)?qbo\.intuit\.com\/app\//.test(url);}catch{return false;}};
-export async function connectInspector(port){
+export async function connectInspector(port,{startupPaused=false}={}){
  const response=await fetch(`http://127.0.0.1:${port}/json/list`,{signal:AbortSignal.timeout(2000)});
  const targets=await response.json();const target=targets.find(t=>t.type==='node');
  if(!target)throw Error('NATIVE_INSPECTOR_MISSING');
  const url=new URL(target.webSocketDebuggerUrl);
  if(url.protocol!=='ws:'||!['127.0.0.1','localhost'].includes(url.hostname)||url.port!==String(port))throw Error('INVALID_INSPECTOR');
  const ws=new WebSocket(url);await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{ws.close();reject(Error('INSPECTOR_TIMEOUT'));},3000);ws.addEventListener('open',()=>{clearTimeout(timer);resolve();},{once:true});ws.addEventListener('error',()=>{clearTimeout(timer);reject(Error('INSPECTOR_CONNECTION_FAILED'));},{once:true});});
- let sequence=0,contextId=null;const pending=new Map();
- ws.addEventListener('message',event=>{let message;try{message=JSON.parse(event.data);}catch{return;}if(message.method==='Runtime.executionContextCreated'&&message.params.context.auxData?.isDefault)contextId=message.params.context.id;if(message.method==='Runtime.executionContextDestroyed'&&message.params.executionContextId===contextId)contextId=null;const item=pending.get(message.id);if(!item)return;pending.delete(message.id);clearTimeout(item.timer);if(message.error){const error=Error(/context/i.test(message.error.message)?'INSPECTOR_CONTEXT_NOT_READY':/parameter/i.test(message.error.message)?'INSPECTOR_INVALID_PARAMETERS':'INSPECTOR_COMMAND_FAILED');const known=['Object couldn\'t be returned by value','Promise was collected','Execution was terminated','Internal error','Cannot find context with specified id','Inspected target navigated or closed'];error.protocol={method:item.method,code:Number(message.error.code),reason:known.find(t=>message.error.message===t)??'unclassified'};item.reject(error);}else item.resolve(message.result);});
+ let sequence=0,contextId=null,pausedFrame=null;const pending=new Map();
+ ws.addEventListener('message',event=>{let message;try{message=JSON.parse(event.data);}catch{return;}if(message.method==='Debugger.paused')pausedFrame=message.params.callFrames[0]?.callFrameId;if(message.method==='Runtime.executionContextCreated'&&message.params.context.auxData?.isDefault)contextId=message.params.context.id;if(message.method==='Runtime.executionContextDestroyed'&&message.params.executionContextId===contextId)contextId=null;const item=pending.get(message.id);if(!item)return;pending.delete(message.id);clearTimeout(item.timer);if(message.error){const error=Error(/context/i.test(message.error.message)?'INSPECTOR_CONTEXT_NOT_READY':/parameter/i.test(message.error.message)?'INSPECTOR_INVALID_PARAMETERS':'INSPECTOR_COMMAND_FAILED');const known=['Object couldn\'t be returned by value','Promise was collected','Execution was terminated','Internal error','Cannot find context with specified id','Inspected target navigated or closed'];error.protocol={method:item.method,code:Number(message.error.code),reason:known.find(t=>message.error.message===t)??'unclassified'};item.reject(error);}else item.resolve(message.result);});
  ws.addEventListener('close',()=>{for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error('INSPECTOR_CLOSED'));}pending.clear();});
  const send=(method,params={},timeout=6000)=>new Promise((resolve,reject)=>{const id=++sequence;const timer=setTimeout(()=>{pending.delete(id);reject(Error('NATIVE_COMMAND_TIMEOUT'));},timeout);pending.set(id,{resolve,reject,timer,method});try{ws.send(JSON.stringify({id,method,params}));}catch{clearTimeout(timer);pending.delete(id);reject(Error('INSPECTOR_CLOSED'));}});
  // Keep asynchronous command results in the main process. Some Electron builds
@@ -28,6 +29,15 @@ export async function connectInspector(port){
   }finally{await raw(`delete ${slot}`).catch(()=>{});}
  };
  await send('Runtime.enable');
+ if(startupPaused){
+  await send('Debugger.enable');await send('Runtime.runIfWaitingForDebugger');
+  const deadline=Date.now()+10000;while(!pausedFrame&&Date.now()<deadline)await sleep(25);
+  if(!pausedFrame)throw Error('NATIVE_STARTUP_PAUSE_UNAVAILABLE');
+  const installed=await send('Debugger.evaluateOnCallFrame',{callFrameId:pausedFrame,expression:`(${installInvisiblePolicy.toString()})(require('electron'))`,returnByValue:true});
+  if(installed.exceptionDetails||installed.result?.value?.active!==true)throw Error('NATIVE_HIDDEN_POLICY_FAILED');
+  await send('Debugger.resume');await send('Debugger.disable');
+ }
+
  const readyDeadline=Date.now()+10000;while(contextId===null&&Date.now()<readyDeadline)await sleep(50);
  if(contextId===null){ws.close();throw Error('INSPECTOR_CONTEXT_NOT_READY');}
  return {evaluate,close:()=>ws.close()};
@@ -54,7 +64,7 @@ export async function createElectronContext(connection){
   async qboVisibilityExercise(mode){
    if(process.env.GITHUB_ACTIONS!=='true'||process.env.RUNNER_OS!=='Windows')throw Error('CI_ONLY');
    if(!['show','popup','external'].includes(mode))throw Error('CI_EXERCISE_INVALID');
-   return run(`(async()=>{const e=globalThis.__targetQboController.electron;const mode=${JSON.stringify(mode)};if(mode==='external'){await e.shell.openExternal('https://example.com');return {mode};}if(mode==='popup'){const w=new e.BrowserWindow({width:400,height:300,show:true,webPreferences:{sandbox:true}});await w.loadURL('data:text/html,<title>Disposable visibility fixture</title><h1>Fixture</h1>');w.show();w.focus();setTimeout(()=>{if(!w.isDestroyed())w.close();},3000);return {mode};}for(const w of e.BrowserWindow.getAllWindows()){w.show();w.showInactive();w.minimize();w.restore();w.focus();}return {mode};})()`);
+   return run(`(async()=>{const e=globalThis.__targetQboController.electron;const mode=${JSON.stringify(mode)};if(mode==='external'){try{await e.shell.openExternal('https://example.com');return {mode,blocked:false};}catch(error){if(error.message!=='NATIVE_EXTERNAL_UI_BLOCKED')throw error;return {mode,blocked:true};}}if(mode==='popup'){const w=new e.BrowserWindow({width:400,height:300,show:true,webPreferences:{sandbox:true}});await w.loadURL('data:text/html,<title>Disposable visibility fixture</title><h1>Fixture</h1>');w.show();w.focus();setTimeout(()=>{if(!w.isDestroyed())w.close();},3000);return {mode,visible:w.isVisible()};}for(const w of e.BrowserWindow.getAllWindows()){w.show();w.showInactive();w.minimize();w.restore();w.focus();}return {mode,visible:e.BrowserWindow.getAllWindows().some(w=>w.isVisible()),policy:globalThis.__qboInvisiblePolicy??null};})()`);
   },
   qboBrowserFacts:{browserMode:'native_app_private_desktop',desktopIsolationVerified:true},
   pages:()=>[...pages.values()],

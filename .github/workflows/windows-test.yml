@@ -1,4 +1,4 @@
-name: QuickBooks input desktop visibility test
+name: QuickBooks hidden-before-start control test
 on:
   push:
     branches: [qbo-isolation-check]
@@ -13,8 +13,27 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: windows-app-test
-      - name: Watch real input desktop during official app startup and shutdown
+      - name: Prove the test detects visible QuickBooks on the normal desktop
+        id: baseline
+        continue-on-error: true
         shell: powershell
+        env:
+          QBO_CI_INTERACTIVE: '1'
+        run: |
+          $ErrorActionPreference='Stop'
+          & node windows-app-test/visibility-test.mjs
+      - name: Require a failing visibility baseline
+        shell: powershell
+        run: |
+          if ('${{ steps.baseline.outcome }}' -ne 'failure') { throw 'VISIBLE_BASELINE_DID_NOT_FAIL' }
+          $result=Get-Content (Join-Path $env:RUNNER_TEMP 'visible-baseline-result.json') -Raw | ConvertFrom-Json
+          if($result.exitCode -ne 0 -or $result.visibleQuickBooksProcesses -lt 1){throw 'BASELINE_DID_NOT_REPRODUCE_VISIBLE_QBO'}
+      - name: Verify hidden policy on the same normal desktop
+        shell: powershell
+        env:
+          QBO_CI_INTERACTIVE: '1'
+          QBO_CI_HIDDEN_POLICY: '1'
+          QBO_CI_REUSE_INSTALL: '1'
         run: |
           $ErrorActionPreference='Stop'
           & node windows-app-test/visibility-test.mjs

@@ -37,7 +37,7 @@ public static class QboAppProbe {
  [DllImport("kernel32.dll")] public static extern uint WaitForSingleObject(IntPtr handle,uint ms);
  static void Check(bool ok){if(!ok)throw new Win32Exception(Marshal.GetLastWin32Error());}
  public static string Name(IntPtr obj){var s=new StringBuilder(512);int n;Check(GetUserObjectInformation(obj,2,s,1024,out n));return s.ToString();}
- public static IntPtr Station(){var h=CreateWindowStation(null,0,0x10000000,IntPtr.Zero);Check(h!=IntPtr.Zero);if(Name(h).Equals("WinSta0",StringComparison.OrdinalIgnoreCase)){CloseWindowStation(h);throw new Exception("INTERACTIVE_STATION");}return h;}
+ public static IntPtr Station(){if(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")=="true"&&Environment.GetEnvironmentVariable("QBO_CI_INTERACTIVE")=="1")return GetProcessWindowStation();var h=CreateWindowStation(null,0,0x10000000,IntPtr.Zero);Check(h!=IntPtr.Zero);if(Name(h).Equals("WinSta0",StringComparison.OrdinalIgnoreCase)){CloseWindowStation(h);throw new Exception("INTERACTIVE_STATION");}return h;}
  public static IntPtr Desktop(string name){var h=CreateDesktop(name,IntPtr.Zero,IntPtr.Zero,0,0x10000000,IntPtr.Zero);Check(h!=IntPtr.Zero);return h;}
  static void Set(IntPtr job,int kind,object data){int size=Marshal.SizeOf(data);var p=Marshal.AllocHGlobal(size);try{Marshal.StructureToPtr(data,p,false);Check(SetInformationJobObject(job,kind,p,(uint)size));}finally{Marshal.FreeHGlobal(p);}}
  public static IntPtr Job(){
@@ -75,13 +75,14 @@ $station=[IntPtr]::Zero;$desktop=[IntPtr]::Zero;$job=[IntPtr]::Zero;$pi=$null
 try{
  $station=[QboAppProbe]::Station()
  if(-not [QboAppProbe]::SetProcessWindowStation($station)){throw 'STATION_FAILED'}
- $name='QboAgent-'+[Guid]::NewGuid().ToString('N')
+ $name=if($env:GITHUB_ACTIONS -eq 'true' -and $env:QBO_CI_INTERACTIVE -eq '1'){'Default'}else{'QboAgent-'+[Guid]::NewGuid().ToString('N')}
  $desktop=[QboAppProbe]::Desktop($name)
  if(-not [QboAppProbe]::SetProcessWindowStation($original)){throw 'STATION_FAILED'}
  $job=[QboAppProbe]::Job()
  # The private automation needs DOM forms, not hardware-accelerated graphics
  # or a warmed spare renderer. These switches affect only this owned launch.
- $pi=[QboAppProbe]::Start($job,$Executable,('--inspect=127.0.0.1:'+$Port+' --process-per-site --js-flags="--optimize-for-size" --disable-gpu --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion,SpareRendererForSitePerProcess,ElectronUseSpareRenderer'),([QboAppProbe]::Name($station)+'\'+$name),(Split-Path -Parent $Executable))
+ $debug=if($env:QBO_CI_HIDDEN_POLICY -eq '1'){'--inspect-brk=127.0.0.1:'}else{'--inspect=127.0.0.1:'}
+ $pi=[QboAppProbe]::Start($job,$Executable,($debug+$Port+' --process-per-site --js-flags="--optimize-for-size" --disable-gpu --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion,SpareRendererForSitePerProcess,ElectronUseSpareRenderer'),([QboAppProbe]::Name($station)+'\'+$name),(Split-Path -Parent $Executable))
  $isolated=$false
  for($i=0;$i -lt 100;$i++){
   try{$isolated=([QboAppProbe]::Name([QboAppProbe]::GetThreadDesktop($pi.tid)) -eq $name)}catch{}

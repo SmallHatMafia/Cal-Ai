@@ -73,6 +73,8 @@ $timer.Start()
  Get-Content -LiteralPath $stderr
  @{inputDesktopSamples=$samples;visibleQuickBooksProcesses=$seen.Count;exitCode=$runner.ExitCode} | ConvertTo-Json -Compress | Write-Output
  @{newVisibleWindows=@($newWindows.Values)} | ConvertTo-Json -Compress | Write-Output
+ $resultName=if($env:QBO_CI_HIDDEN_POLICY -eq '1'){'hidden-policy-result.json'}else{'visible-baseline-result.json'}
+ @{inputDesktopSamples=$samples;visibleQuickBooksProcesses=$seen.Count;newVisibleWindows=@($newWindows.Values);exitCode=$runner.ExitCode} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP $resultName)
  if($runner.ExitCode -ne 0){throw 'APP_TEST_FAILED'}
  if($seen.Count -ne 0){throw 'QUICKBOOKS_VISIBLE_ON_INPUT_DESKTOP'}
  if($newWindows.Count -ne 0){throw 'NEW_WINDOW_VISIBLE_ON_INPUT_DESKTOP'}
