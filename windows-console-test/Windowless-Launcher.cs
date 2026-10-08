@@ -1,33 +1,63 @@
 using System;
-using System.Diagnostics;
+using System.Globalization;
 using System.IO;
+using System.Text;
+using System.Runtime.InteropServices;
+using System.Management.Automation;
+using System.Management.Automation.Host;
+using System.Management.Automation.Runspaces;
 
-// Compiled as WindowsApplication: the task itself cannot allocate a console.
+// WindowsApplication plus an in-process engine: no PowerShell ConsoleHost.
 public static class WindowlessLauncher {
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode)] static extern uint GetLongPathName(string path, StringBuilder output, uint size);
+    [DllImport("kernel32.dll")] static extern uint GetConsoleProcessList(uint[] ids, uint count);
+    public static bool ConsoleAttached() { return GetConsoleProcessList(new uint[32], 32) > 0; }
+    public static string Canonical(string path) {
+        var output=new StringBuilder(32768);
+        uint count=GetLongPathName(Path.GetFullPath(path), output, 32768);
+        if(count==0 || count>=32768) throw new IOException("TASK_PATH_UNAVAILABLE");
+        return output.ToString().TrimEnd((char)92);
+    }
+    private sealed class SilentHost : PSHost {
+        private readonly Guid id = Guid.NewGuid();
+        public int ExitCode; public bool Exiting;
+        public override Guid InstanceId { get { return id; } }
+        public override string Name { get { return "WindowlessBackground"; } }
+        public override Version Version { get { return new Version(1, 0); } }
+        public override CultureInfo CurrentCulture { get { return CultureInfo.CurrentCulture; } }
+        public override CultureInfo CurrentUICulture { get { return CultureInfo.CurrentUICulture; } }
+        public override PSHostUserInterface UI { get { return null; } }
+        public override void SetShouldExit(int code) { ExitCode = code; Exiting = true; }
+        public override void NotifyBeginApplication() {}
+        public override void NotifyEndApplication() {}
+        public override void EnterNestedPrompt() { throw new InvalidOperationException("INTERACTIVE_PROMPT_FORBIDDEN"); }
+        public override void ExitNestedPrompt() {}
+    }
     public static int Main(string[] args) {
-        if (args.Length != 1 || (args[0] != "sync" && args[0] != "watch")) return 2;
+        if (args.Length != 1 || (args[0] != "sync" && args[0] != "watch" && args[0] != "host")) return 2;
         try {
             string root = AppDomain.CurrentDomain.BaseDirectory;
-            string script = Path.Combine(root, args[0] == "sync" ? "Run-Silent.ps1" : "Watch-Background.ps1");
+            string name = args[0] == "sync" ? "Run-Silent.ps1" : args[0] == "watch" ? "Watch-Background.ps1" : "Background-Host.ps1";
+            string script = Path.Combine(root, name);
             if (!File.Exists(script)) return 3;
-            var info = new ProcessStartInfo {
-                FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
-                Arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" + script + "\"",
-                WorkingDirectory = root,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-            using (var child = Process.Start(info)) {
-                child.StandardInput.Close();
-                // Drain both streams without retaining credentials or raw errors.
-                child.OutputDataReceived += (sender, data) => {};
-                child.ErrorDataReceived += (sender, data) => {};
-                child.BeginOutputReadLine(); child.BeginErrorReadLine();
-                child.WaitForExit();
-                return child.ExitCode;
+            Directory.SetCurrentDirectory(root);
+            var host = new SilentHost();
+            var state = InitialSessionState.CreateDefault();
+            state.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
+            using (var runspace = RunspaceFactory.CreateRunspace(host, state)) {
+                runspace.Open();
+                using (var shell = PowerShell.Create()) {
+                    shell.Runspace = runspace;
+                    shell.AddCommand(script);
+                    // Only the private host's existing Node pipe carries readiness/exit data.
+                    if (args[0] == "host") {
+                        var output = new PSDataCollection<PSObject>();
+                        output.DataAdded += (sender, data) => { Console.Out.WriteLine(output[data.Index].ToString()); Console.Out.Flush(); };
+                        var running = shell.BeginInvoke<PSObject, PSObject>(null, output);
+                        shell.EndInvoke(running);
+                    } else { shell.Invoke(); }
+                    return host.Exiting ? host.ExitCode : shell.HadErrors ? 1 : 0;
+                }
             }
         } catch { return 1; }
     }
