@@ -33,6 +33,10 @@ public static class WindowlessLauncher {
         public override void EnterNestedPrompt() { throw new InvalidOperationException("INTERACTIVE_PROMPT_FORBIDDEN"); }
         public override void ExitNestedPrompt() {}
     }
+    private static void TestFailure(string detail) {
+        if(Environment.GetEnvironmentVariable("WINDOWLESS_TEST_DIAGNOSTICS")=="1")
+            File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"test-failure.txt"),detail);
+    }
     public static int Main(string[] args) {
         if (args.Length != 1 || (args[0] != "sync" && args[0] != "watch" && args[0] != "host")) return 2;
         try {
@@ -56,9 +60,11 @@ public static class WindowlessLauncher {
                         var running = shell.BeginInvoke<PSObject, PSObject>(null, output);
                         shell.EndInvoke(running);
                     } else { shell.Invoke(); }
-                    return host.Exiting ? host.ExitCode : shell.HadErrors ? 1 : 0;
+                    if(shell.HadErrors) { foreach(var error in shell.Streams.Error) TestFailure(error.ToString()+" | "+error.FullyQualifiedErrorId); }
+                    var exit=runspace.SessionStateProxy.GetVariable("LASTEXITCODE");
+                    return host.Exiting ? host.ExitCode : shell.HadErrors ? 1 : exit is int ? (int)exit : 0;
                 }
             }
-        } catch { return 1; }
+        } catch(Exception error) { TestFailure(error.ToString()); return 1; }
     }
 }
