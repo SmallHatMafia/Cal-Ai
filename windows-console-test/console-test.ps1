@@ -5,7 +5,9 @@ $tasks=@('Target Roofing QuickBooks Sync','Target Roofing QuickBooks Recovery')
 try{
   foreach($name in @('Windowless-Launcher.cs','Windowless-Tasks.ps1','Ensure-Recovery.ps1')){Copy-Item (Join-Path $PSScriptRoot $name) $root}
   $fixture=@'
-Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class Probe{[DllImport("kernel32.dll")]public static extern IntPtr GetConsoleWindow();}'
+param([switch]$Allocate)
+Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class Probe{[DllImport("kernel32.dll")]public static extern IntPtr GetConsoleWindow();[DllImport("kernel32.dll")]public static extern bool AllocConsole();}'
+if($Allocate){[void][Probe]::AllocConsole()}
 $mode=if([IO.Path]::GetFileName($PSCommandPath) -eq 'Run-Silent.ps1'){'sync'}else{'watch'}
 @{console=([Probe]::GetConsoleWindow().ToInt64());pid=$PID} | ConvertTo-Json -Compress | Set-Content (Join-Path $PSScriptRoot ($mode+'.json'))
 Start-Sleep -Seconds 1
@@ -13,9 +15,10 @@ exit 37
 '@
   foreach($script in @('Run-Silent.ps1','Watch-Background.ps1')){Set-Content (Join-Path $root $script) $fixture}
   $ps=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-  # Positive control: the direct console-host path really has a console.
+  # The CI runner is a service. Explicit allocation makes the console detector
+  # red-capable even without an interactive user's parent console to inherit.
   $old=New-Object Diagnostics.ProcessStartInfo
-  $old.FileName=$ps;$old.Arguments='-NoProfile -File "'+(Join-Path $root 'Run-Silent.ps1')+'"';$old.UseShellExecute=$false
+  $old.FileName=$ps;$old.Arguments='-NoProfile -File "'+(Join-Path $root 'Run-Silent.ps1')+'" -Allocate';$old.UseShellExecute=$false
   $process=[Diagnostics.Process]::Start($old);$process.WaitForExit();$process.Dispose()
   $before=Get-Content (Join-Path $root 'sync.json') -Raw | ConvertFrom-Json
   if($before.console -eq 0){throw 'Positive control did not allocate a console'}
