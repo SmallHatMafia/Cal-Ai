@@ -47,9 +47,9 @@ exit 37
     if(-not (Test-WindowlessAction $task $script)){throw 'Task still directly starts PowerShell'}
     Remove-Item (Join-Path $root ($mode+'.json')) -Force -ErrorAction SilentlyContinue
     $start=New-Object Diagnostics.ProcessStartInfo
-    $start.FileName=$windowlessLauncher;$start.Arguments=$mode;$start.UseShellExecute=$false
+    $start.FileName=$windowlessLauncher;$start.Arguments=$mode;$start.UseShellExecute=$false;$start.RedirectStandardError=$true;$start.RedirectStandardOutput=$true
     $process=[Diagnostics.Process]::Start($start);$process.WaitForExit()
-    if($process.ExitCode -ne 37){if(Test-Path (Join-Path $root 'test-failure.txt')){Get-Content (Join-Path $root 'test-failure.txt') | Write-Output};throw ('Child exit code lost: '+$process.ExitCode)}
+    if($process.ExitCode -ne 37){$process.StandardError.ReadToEnd() | Write-Output;if(Test-Path (Join-Path $root 'test-failure.txt')){Get-Content (Join-Path $root 'test-failure.txt') | Write-Output};throw ('Child exit code lost: '+$process.ExitCode)}
     $process.Dispose()
     $after=Get-Content (Join-Path $root ($mode+'.json')) -Raw | ConvertFrom-Json
     $after | ConvertTo-Json -Compress | Write-Output
