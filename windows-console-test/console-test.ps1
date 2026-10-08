@@ -32,6 +32,8 @@ exit 37
     $action=New-ScheduledTaskAction -Execute $ps -Argument ('-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "'+(Join-Path $root $script)+'"') -WorkingDirectory $root
     Register-ScheduledTask -TaskName $tasks[$i] -TaskPath '\' -Action $action -Principal $principal -Trigger $trigger -Settings $settings | Out-Null
   }
+  . (Join-Path $root 'Windowless-Tasks.ps1')
+  foreach($taskName in $tasks){$registered=Get-ScheduledTask -TaskName $taskName; @{fixtureRoot=$root;helperRoot=$windowlessRoot;actionCount=@($registered.Actions).Count;action=$registered.Actions[0] | Select-Object Execute,Arguments,WorkingDirectory} | ConvertTo-Json -Depth 3 -Compress | Write-Output}
   & (Join-Path $root 'Ensure-Recovery.ps1')
   . (Join-Path $root 'Windowless-Tasks.ps1')
   foreach($mode in @('sync','watch')){
