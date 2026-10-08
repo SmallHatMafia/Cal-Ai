@@ -47,6 +47,7 @@ exit 37
     if($process.ExitCode -ne 37){throw ('Child exit code lost: '+$process.ExitCode)}
     $process.Dispose()
     $after=Get-Content (Join-Path $root ($mode+'.json')) -Raw | ConvertFrom-Json
+    $after | ConvertTo-Json -Compress | Write-Output
     if($after.console -ne 0 -or $after.consoleProcesses -ne 0){throw 'A console was allocated by the new launcher'}
   }
   & (Join-Path $root 'Ensure-Recovery.ps1') # Migration is idempotent.
