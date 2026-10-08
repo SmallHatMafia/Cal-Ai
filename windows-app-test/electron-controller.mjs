@@ -34,7 +34,7 @@ export async function connectInspector(port,{startupPaused=false}={}){
   const deadline=Date.now()+10000;while(!pausedFrame&&Date.now()<deadline)await sleep(25);
   if(!pausedFrame)throw Error('NATIVE_STARTUP_PAUSE_UNAVAILABLE');
   const installed=await send('Debugger.evaluateOnCallFrame',{callFrameId:pausedFrame,expression:`(${installInvisiblePolicy.toString()})(require('electron'))`,returnByValue:true});
-  if(installed.exceptionDetails||installed.result?.value?.active!==true)throw Error('NATIVE_HIDDEN_POLICY_FAILED');
+  if(installed.exceptionDetails||installed.result?.value?.active!==true){const error=Error('NATIVE_HIDDEN_POLICY_FAILED');error.nativeDetail=String(installed.exceptionDetails?.exception?.description??installed.exceptionDetails?.text??'inactive').split('\n')[0];ws.close();throw error;}
   await send('Debugger.resume');await send('Debugger.disable');
  }
 

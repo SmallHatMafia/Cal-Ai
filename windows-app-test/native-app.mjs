@@ -58,7 +58,7 @@ export async function openNativeApp({root,chromium,executable}) {
     const deadline=Date.now()+30000;
     while(Date.now()<deadline){
       if(child.exitCode!==null)throw Error('APP_EXITED');
-      try{browser=await connectInspector(port,{startupPaused:process.env.QBO_CI_HIDDEN_POLICY==='1'});break;}catch{await sleep(300);}
+      try{browser=await connectInspector(port,{startupPaused:process.env.QBO_CI_HIDDEN_POLICY==='1'});break;}catch(error){if(process.env.QBO_CI_HIDDEN_POLICY==='1'&&/^NATIVE_|INSPECTOR_COMMAND_FAILED/.test(error.message))throw error;await sleep(300);}
     }
     if(!browser)throw Error('APP_CONNECTION_TIMEOUT');
     mark('controller_initialize');

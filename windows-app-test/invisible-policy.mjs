@@ -18,6 +18,9 @@ export function installInvisiblePolicy(electron){
   const hidden=new Proxy(original,{construct(target,args,newTarget){return Reflect.construct(target,[{...(args[0]??{}),show:false,skipTaskbar:true},...args.slice(1)],newTarget);}});
   Object.defineProperty(electron,name,{get:()=>hidden,configurable:true});
  }
+ for(const method of ['showOpenDialog','showSaveDialog','showMessageBox'])if(typeof electron.dialog?.[method]==='function')electron.dialog[method]=deny;
+ for(const method of ['showOpenDialogSync','showSaveDialogSync','showMessageBoxSync'])if(typeof electron.dialog?.[method]==='function')electron.dialog[method]=()=>{facts.blocked++;throw Error('NATIVE_EXTERNAL_UI_BLOCKED');};
+ if(typeof electron.dialog?.showErrorBox==='function')electron.dialog.showErrorBox=quiet;
  for(const method of ['openExternal','openPath'])if(typeof electron.shell?.[method]==='function')electron.shell[method]=deny;
  if(typeof electron.shell?.showItemInFolder==='function')electron.shell.showItemInFolder=quiet;
  if(typeof electron.app?.relaunch==='function')electron.app.relaunch=quiet;
