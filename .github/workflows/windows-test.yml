@@ -1,4 +1,4 @@
-name: Isolated Windows app compatibility test
+name: QuickBooks input desktop visibility test
 on:
   push:
     branches: [qbo-isolation-check]
@@ -7,21 +7,14 @@ permissions:
 jobs:
   probe:
     runs-on: windows-2022
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
           sparse-checkout: windows-app-test
-      - name: Test official app in a noninteractive window station
+      - name: Watch real input desktop during official app startup and shutdown
         shell: powershell
         run: |
-          npm install --no-save --prefix windows-app-test playwright-core@1.55.1
-          '{"testOnly":true}' | Set-Content windows-app-test/config.json
-          node windows-app-test/install-native-app.mjs --explicit-setup
-
-      - name: Verify production-style backend twice
-        shell: powershell
-        run: |
-          npm install --no-save --prefix windows-app-test playwright-core@1.55.1
-          node windows-app-test/test-backend.mjs
+          $ErrorActionPreference='Stop'
+          & node windows-app-test/visibility-test.mjs

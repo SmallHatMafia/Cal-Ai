@@ -4,6 +4,12 @@ if($env:OS -ne 'Windows_NT'){throw 'WINDOWS_REQUIRED'}
 $native=@'
 using System; using System.Text; using System.Runtime.InteropServices; using System.ComponentModel;
 public static class QboAppProbe {
+ public static IntPtr completion=IntPtr.Zero; private static int memoryLimitHitCount=0;
+ [StructLayout(LayoutKind.Sequential)] public struct Completion { public IntPtr key,port; }
+ [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr CreateIoCompletionPort(IntPtr file,IntPtr existing,UIntPtr key,uint threads);
+ [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetQueuedCompletionStatus(IntPtr port,out uint message,out UIntPtr key,out IntPtr data,uint milliseconds);
+ public static int MemoryLimitHits(){uint message;UIntPtr key;IntPtr data;while(completion!=IntPtr.Zero&&GetQueuedCompletionStatus(completion,out message,out key,out data,0)){if(message==10)memoryLimitHitCount++;}return memoryLimitHitCount;}
+ public static System.Threading.Tasks.Task<string> StopSignal(){return System.Threading.Tasks.Task.Run<string>(()=>Console.In.ReadLine());}
  [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)] public struct SI { public int cb; public string reserved,desktop,title; public int x,y,cx,cy,xc,yc,fill,flags; public short show,reserved2; public IntPtr reservedPtr,input,output,error; }
  [StructLayout(LayoutKind.Sequential)] public struct PI { public IntPtr process,thread; public uint pid,tid; }
  [StructLayout(LayoutKind.Sequential)] public struct Limits { public long processTime,jobTime; public uint flags; public UIntPtr min,max; public uint active; public UIntPtr affinity; public uint priority,scheduling; }
@@ -38,6 +44,8 @@ public static class QboAppProbe {
   var h=CreateJobObject(IntPtr.Zero,null);Check(h!=IntPtr.Zero);
   try{
    var limits=new Extended();limits.basic.flags=0x2000|0x200|0x20;limits.basic.priority=0x4000;limits.jobMemory=new UIntPtr(1073741824);
+   completion=CreateIoCompletionPort(new IntPtr(-1),IntPtr.Zero,UIntPtr.Zero,1);Check(completion!=IntPtr.Zero);
+   var association=new Completion();association.key=h;association.port=completion;Set(h,7,association);
    Set(h,9,limits); // kill on close, 1 GiB committed memory ceiling, below-normal priority
    // CI differential test: retain private station, omit extra job UI limits.
    // Set(h,4,(uint)0xFF); // no external USER handles, desktop switching, clipboard or system changes
@@ -71,7 +79,9 @@ try{
  $desktop=[QboAppProbe]::Desktop($name)
  if(-not [QboAppProbe]::SetProcessWindowStation($original)){throw 'STATION_FAILED'}
  $job=[QboAppProbe]::Job()
- $pi=[QboAppProbe]::Start($job,$Executable,('--remote-debugging-address=127.0.0.1 --remote-debugging-port='+$Port),([QboAppProbe]::Name($station)+'\'+$name),(Split-Path -Parent $Executable))
+ # The private automation needs DOM forms, not hardware-accelerated graphics
+ # or a warmed spare renderer. These switches affect only this owned launch.
+ $pi=[QboAppProbe]::Start($job,$Executable,('--inspect=127.0.0.1:'+$Port+' --process-per-site --js-flags="--optimize-for-size" --disable-gpu --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion,SpareRendererForSitePerProcess,ElectronUseSpareRenderer'),([QboAppProbe]::Name($station)+'\'+$name),(Split-Path -Parent $Executable))
  $isolated=$false
  for($i=0;$i -lt 100;$i++){
   try{$isolated=([QboAppProbe]::Name([QboAppProbe]::GetThreadDesktop($pi.tid)) -eq $name)}catch{}
@@ -81,13 +91,37 @@ try{
  }
  if(-not $isolated){throw 'ISOLATION_FAILED'}
  @{ready=$true;isolated=$true;pid=$pi.pid} | ConvertTo-Json -Compress | Write-Output
- # stdin EOF or CLOSE ends this owned app. Ten minutes is a hard watchdog.
- $stop=[Console]::In.ReadLineAsync();$started=Get-Date
- while(-not $stop.IsCompleted -and ((Get-Date)-$started).TotalSeconds -lt 600 -and [QboAppProbe]::Usage($job).active -gt 0){Start-Sleep -Milliseconds 200}
+ # stdin EOF or CLOSE ends this owned app. Three minutes is a hard watchdog.
+ $stop=[QboAppProbe]::StopSignal();$started=Get-Date
+ $lastMetrics=Get-Date
+ while(-not $stop.IsCompleted -and ((Get-Date)-$started).TotalSeconds -lt 180 -and [QboAppProbe]::Usage($job).active -gt 0){
+  if(((Get-Date)-$lastMetrics).TotalSeconds -ge 3){
+   $usage=[QboAppProbe]::Usage($job)
+   @{metrics=$true;peakJobBytes=[QboAppProbe]::PeakBytes($job);activeProcesses=$usage.active;terminatedProcesses=$usage.terminated;elapsedSeconds=[int]((Get-Date)-$started).TotalSeconds;memoryLimitHits=[QboAppProbe]::MemoryLimitHits()} | ConvertTo-Json -Compress | Write-Output
+   $lastMetrics=Get-Date
+  }
+  Start-Sleep -Milliseconds 200
+ }
+ $usage=[QboAppProbe]::Usage($job)
+ [uint32]$rootExit=0;[void][QboAppProbe]::GetExitCodeProcess($pi.process,[ref]$rootExit)
+ $reason=if($stop.IsCompleted){'stop_signal'}elseif($usage.active -eq 0){'app_exited'}else{'watchdog'}
+ $signal=if($stop.IsCompleted){if($stop.IsFaulted){'fault'}elseif($null -eq $stop.Result){'eof'}elseif($stop.Result -eq 'CLOSE'){'close'}else{'other'}}else{'pending'}
+ # Return only Windows' executable/module identifiers, never app logs or session data.
+ $fault=$null
+ if($reason -eq 'app_exited' -and $rootExit -ne 0){
+  try{
+   foreach($event in (Get-WinEvent -FilterHashtable @{LogName='Application';Id=1000;StartTime=$started.AddSeconds(-2)} -MaxEvents 8 -ErrorAction Stop)){
+    $fields=@{};foreach($entry in ([xml]$event.ToXml()).Event.EventData.Data){$fields[$entry.Name]=[string]$entry.'#text'}
+    if($fields.AppName -eq 'QuickBooks Online.exe'){$fault=@{module=$fields.ModuleName;exception=$fields.ExceptionCode;offset=$fields.FaultingOffset};break}
+   }
+  }catch{}
+ }
+ @{hostExit=$true;reason=$reason;signal=$signal;rootExitCode=$rootExit;activeProcesses=$usage.active;elapsedMs=[int]((Get-Date)-$started).TotalMilliseconds;peakJobBytes=[QboAppProbe]::PeakBytes($job);memoryLimitHits=[QboAppProbe]::MemoryLimitHits();fault=$fault} | ConvertTo-Json -Compress | Write-Output
 }finally{
  [void][QboAppProbe]::SetProcessWindowStation($original)
  if($job -ne [IntPtr]::Zero){[void][QboAppProbe]::TerminateJobObject($job,0);[void][QboAppProbe]::CloseHandle($job)}
  if($null -ne $pi){[void][QboAppProbe]::CloseHandle($pi.thread);[void][QboAppProbe]::CloseHandle($pi.process)}
+ if([QboAppProbe]::completion -ne [IntPtr]::Zero){[void][QboAppProbe]::CloseHandle([QboAppProbe]::completion)}
  if($desktop -ne [IntPtr]::Zero){[void][QboAppProbe]::CloseDesktop($desktop)}
  if($station -ne [IntPtr]::Zero){[void][QboAppProbe]::CloseWindowStation($station)}
 }
