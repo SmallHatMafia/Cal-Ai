@@ -1,4 +1,5 @@
 $ErrorActionPreference='Stop'
+$env:WINDOWLESS_TEST_DIAGNOSTICS='1'
 $root=Join-Path $env:TEMP ('windowless task '+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $root | Out-Null
 $tasks=@('Target Roofing QuickBooks Sync','Target Roofing QuickBooks Recovery')
@@ -48,7 +49,7 @@ exit 37
     $start=New-Object Diagnostics.ProcessStartInfo
     $start.FileName=$windowlessLauncher;$start.Arguments=$mode;$start.UseShellExecute=$false
     $process=[Diagnostics.Process]::Start($start);$process.WaitForExit()
-    if($process.ExitCode -ne 37){throw ('Child exit code lost: '+$process.ExitCode)}
+    if($process.ExitCode -ne 37){if(Test-Path (Join-Path $root 'test-failure.txt')){Get-Content (Join-Path $root 'test-failure.txt') | Write-Output};throw ('Child exit code lost: '+$process.ExitCode)}
     $process.Dispose()
     $after=Get-Content (Join-Path $root ($mode+'.json')) -Raw | ConvertFrom-Json
     $after | ConvertTo-Json -Compress | Write-Output
