@@ -31,13 +31,16 @@ $timer.add_Tick({$form.Close()})
 $timer.Start()
 [void]$form.ShowDialog()
 '@ | Set-Content -LiteralPath $fixtureFile
- $fixture=Start-Process powershell.exe -ArgumentList @('-NoProfile','-File',$fixtureFile) -PassThru -WindowStyle Hidden
+ $fixture=Start-Process powershell.exe -ArgumentList @('-NoProfile','-File',$fixtureFile) -PassThru -WindowStyle Normal
  $positive=$false;$deadline=(Get-Date).AddSeconds(8)
  while((Get-Date) -lt $deadline -and -not $fixture.HasExited){
   if([VisibleQboWindows]::Pids($desktop) -contains [uint32]$fixture.Id){$positive=$true;break}
   Start-Sleep -Milliseconds 20
  }
- if(-not $positive){throw 'OBSERVER_DID_NOT_DETECT_VISIBLE_CONTROL'}
+ if(-not $positive){
+  @{fixtureExited=$fixture.HasExited;fixturePid=$fixture.Id;visiblePids=[VisibleQboWindows]::Pids($desktop)} | ConvertTo-Json -Compress | Write-Output
+  throw 'OBSERVER_DID_NOT_DETECT_VISIBLE_CONTROL'
+ }
  $fixture.WaitForExit()
  Write-Output '{"positiveControlDetected":true}'
  $stdout=Join-Path $env:RUNNER_TEMP 'qbo-visibility-out.txt'
@@ -53,6 +56,7 @@ $timer.Start()
   Start-Sleep -Milliseconds 20
  }
  if(-not $runner.HasExited){Stop-Process -Id $runner.Id;throw 'VISIBILITY_TEST_TIMEOUT'}
+ $runner.WaitForExit()
  Get-Content -LiteralPath $stdout
  Get-Content -LiteralPath $stderr
  @{inputDesktopSamples=$samples;visibleQuickBooksProcesses=$seen.Count;exitCode=$runner.ExitCode} | ConvertTo-Json -Compress | Write-Output
