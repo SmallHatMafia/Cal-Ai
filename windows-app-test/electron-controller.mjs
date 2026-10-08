@@ -51,6 +51,11 @@ export async function createElectronContext(connection){
  const run=expression=>connection.evaluate(expression);
  const wcExpr=id=>`(()=>{const w=globalThis.__targetQboController.electron.webContents.fromId(${Number(id)});if(!w||w.isDestroyed()||!/^https:\\/\\/(?:c[0-9]+\\.)?qbo\\.intuit\\.com\\/app\\//.test(w.getURL()))throw Error('QBO_DOCUMENT_UNAVAILABLE');return w;})()`;
  const context={
+  async qboVisibilityExercise(mode){
+   if(process.env.GITHUB_ACTIONS!=='true'||process.env.RUNNER_OS!=='Windows')throw Error('CI_ONLY');
+   if(!['show','popup','external'].includes(mode))throw Error('CI_EXERCISE_INVALID');
+   return run(`(async()=>{const e=globalThis.__targetQboController.electron;const mode=${JSON.stringify(mode)};if(mode==='external'){await e.shell.openExternal('https://example.com');return {mode};}if(mode==='popup'){const w=new e.BrowserWindow({width:400,height:300,show:true,webPreferences:{sandbox:true}});await w.loadURL('data:text/html,<title>Disposable visibility fixture</title><h1>Fixture</h1>');w.show();w.focus();setTimeout(()=>{if(!w.isDestroyed())w.close();},3000);return {mode};}for(const w of e.BrowserWindow.getAllWindows()){w.show();w.showInactive();w.minimize();w.restore();w.focus();}return {mode};})()`);
+  },
   qboBrowserFacts:{browserMode:'native_app_private_desktop',desktopIsolationVerified:true},
   pages:()=>[...pages.values()],
   async refresh(){

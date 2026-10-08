@@ -17,7 +17,7 @@ if(process.argv[2]!=='--run'){
  await child('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',join(root,'visibility-test.ps1'),'-Node',process.execPath]);
 }else{
  const executable=join(process.env.LOCALAPPDATA,'QuickBooksAdvanced','app-3.10.4','QuickBooks Online.exe');
- for(let cycle=1;cycle<=2;cycle++){
+ for(let cycle=1;cycle<=1;cycle++){
   let app;
   try{
    app=await openNativeApp({root,executable});
@@ -25,6 +25,10 @@ if(process.argv[2]!=='--run'){
    const facts=await app.context.qboNativeDiagnostics();
    console.log(JSON.stringify({cycle,windows: facts.windows.length,contents:facts.contents.map(c=>({id:c.id,type:c.type})),resources:app.context.qboNativeMetrics()}));
    if(facts.windows.length===0)throw Error('NO_APP_WINDOWS_OBSERVED');
+   for(const mode of ['show','popup','external']){
+    console.log(JSON.stringify({exercise:await app.context.qboVisibilityExercise(mode)}));
+    await new Promise(resolve=>setTimeout(resolve,5000));
+   }
   }finally{if(app)await app.close();}
   console.log(JSON.stringify({cycle,closed:true}));
  }
