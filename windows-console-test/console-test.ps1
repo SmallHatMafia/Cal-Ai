@@ -4,16 +4,20 @@ New-Item -ItemType Directory -Path $root | Out-Null
 $tasks=@('Target Roofing QuickBooks Sync','Target Roofing QuickBooks Recovery')
 try{
   foreach($name in @('Windowless-Launcher.cs','Windowless-Tasks.ps1','Ensure-Recovery.ps1')){Copy-Item (Join-Path $PSScriptRoot $name) $root}
+  $compiled=Join-Path $root 'compiled-launcher.exe'
+  Add-Type -TypeDefinition (Get-Content (Join-Path $root 'Windowless-Launcher.cs') -Raw) -OutputAssembly $compiled -OutputType WindowsApplication -ReferencedAssemblies @("System.dll",[System.Management.Automation.PowerShell].Assembly.Location)
+  Copy-Item $compiled (Join-Path $root 'Windowless-Launcher.bin')
   $fixture=@'
 param([switch]$Allocate)
 Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class Probe{[DllImport("kernel32.dll")]public static extern IntPtr GetConsoleWindow();[DllImport("kernel32.dll")]public static extern bool AllocConsole();[DllImport("kernel32.dll")]public static extern uint GetConsoleProcessList(uint[] ids,uint count);}'
 if($Allocate){[void][Probe]::AllocConsole()}
-$mode=if([IO.Path]::GetFileName($PSCommandPath) -eq 'Run-Silent.ps1'){'sync'}else{'watch'}
+$mode=if([IO.Path]::GetFileName($PSCommandPath) -eq 'Run-Silent.ps1'){'sync'}elseif([IO.Path]::GetFileName($PSCommandPath) -eq 'Watch-Background.ps1'){'watch'}else{'host'}
 @{console=([Probe]::GetConsoleWindow().ToInt64());consoleProcesses=[Probe]::GetConsoleProcessList((New-Object uint32[] 32),32);pid=$PID} | ConvertTo-Json -Compress | Set-Content (Join-Path $PSScriptRoot ($mode+'.json'))
+if($mode -eq 'host'){'{"ready":true,"isolated":true,"stationVisible":false,"pid":123}';[void][Console]::In.ReadLine();exit 75}
 Start-Sleep -Seconds 1
 exit 37
 '@
-  foreach($script in @('Run-Silent.ps1','Watch-Background.ps1')){Set-Content (Join-Path $root $script) $fixture}
+  foreach($script in @('Run-Silent.ps1','Watch-Background.ps1','Background-Host.ps1')){Set-Content (Join-Path $root $script) $fixture}
   $ps=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
   # The CI runner is a service. Explicit allocation makes the console detector
   # red-capable even without an interactive user's parent console to inherit.
@@ -50,8 +54,20 @@ exit 37
     $after | ConvertTo-Json -Compress | Write-Output
     if($after.console -ne 0 -or $after.consoleProcesses -ne 0){throw 'A console was allocated by the new launcher'}
   }
+  $start=New-Object Diagnostics.ProcessStartInfo
+  $start.FileName=$windowlessLauncher;$start.Arguments='host';$start.UseShellExecute=$false
+  $start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
+  $process=[Diagnostics.Process]::Start($start)
+  $ready=$process.StandardOutput.ReadLineAsync()
+  if(-not $ready.Wait(10000) -or -not ($ready.Result | ConvertFrom-Json).ready){throw 'Streaming readiness failed'}
+  $process.StandardInput.WriteLine('CLOSE');$process.StandardInput.Close()
+  if(-not $process.WaitForExit(10000) -or $process.ExitCode -ne 75){throw 'Host shutdown/exit forwarding failed'}
+  $process.Dispose()
+  $hostResult=Get-Content (Join-Path $root 'host.json') -Raw | ConvertFrom-Json
+  if($hostResult.console -ne 0 -or $hostResult.consoleProcesses -ne 0){throw 'Private bootstrap allocated a console'}
   & (Join-Path $root 'Ensure-Recovery.ps1') # Migration is idempotent.
-  Write-Output 'WINDOWLESS_TASK_ACTIONS_AND_BOTH_CHILDREN_VERIFIED'
+  Write-Output 'WINDOWLESS_TASK_ACTIONS_AND_ALL_THREE_HOST_MODES_VERIFIED'
+  Write-Output ('LAUNCHER_BASE64='+[Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $root 'Windowless-Launcher.bin'))))
 } finally {
   foreach($task in $tasks){Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue}
   Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
