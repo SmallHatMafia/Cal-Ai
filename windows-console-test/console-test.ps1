@@ -6,10 +6,10 @@ try{
   foreach($name in @('Windowless-Launcher.cs','Windowless-Tasks.ps1','Ensure-Recovery.ps1')){Copy-Item (Join-Path $PSScriptRoot $name) $root}
   $fixture=@'
 param([switch]$Allocate)
-Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class Probe{[DllImport("kernel32.dll")]public static extern IntPtr GetConsoleWindow();[DllImport("kernel32.dll")]public static extern bool AllocConsole();}'
+Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class Probe{[DllImport("kernel32.dll")]public static extern IntPtr GetConsoleWindow();[DllImport("kernel32.dll")]public static extern bool AllocConsole();[DllImport("kernel32.dll")]public static extern uint GetConsoleProcessList(uint[] ids,uint count);}'
 if($Allocate){[void][Probe]::AllocConsole()}
 $mode=if([IO.Path]::GetFileName($PSCommandPath) -eq 'Run-Silent.ps1'){'sync'}else{'watch'}
-@{console=([Probe]::GetConsoleWindow().ToInt64());pid=$PID} | ConvertTo-Json -Compress | Set-Content (Join-Path $PSScriptRoot ($mode+'.json'))
+@{console=([Probe]::GetConsoleWindow().ToInt64());consoleProcesses=[Probe]::GetConsoleProcessList((New-Object uint32[] 32),32);pid=$PID} | ConvertTo-Json -Compress | Set-Content (Join-Path $PSScriptRoot ($mode+'.json'))
 Start-Sleep -Seconds 1
 exit 37
 '@
@@ -21,7 +21,7 @@ exit 37
   $old.FileName=$ps;$old.Arguments='-NoProfile -File "'+(Join-Path $root 'Run-Silent.ps1')+'" -Allocate';$old.UseShellExecute=$false
   $process=[Diagnostics.Process]::Start($old);$process.WaitForExit();$process.Dispose()
   $before=Get-Content (Join-Path $root 'sync.json') -Raw | ConvertFrom-Json
-  if($before.console -eq 0){throw 'Positive control did not allocate a console'}
+  if($before.consoleProcesses -eq 0){throw 'Positive control did not allocate a console'}
   Write-Output 'POSITIVE_CONTROL_CONSOLE_PRESENT'
   $user=[Security.Principal.WindowsIdentity]::GetCurrent().Name
   $principal=New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
@@ -45,7 +45,7 @@ exit 37
     if($process.ExitCode -ne 37){throw ('Child exit code lost: '+$process.ExitCode)}
     $process.Dispose()
     $after=Get-Content (Join-Path $root ($mode+'.json')) -Raw | ConvertFrom-Json
-    if($after.console -ne 0){throw 'A console was allocated by the new launcher'}
+    if($after.console -ne 0 -or $after.consoleProcesses -ne 0){throw 'A console was allocated by the new launcher'}
   }
   & (Join-Path $root 'Ensure-Recovery.ps1') # Migration is idempotent.
   Write-Output 'WINDOWLESS_TASK_ACTIONS_AND_BOTH_CHILDREN_VERIFIED'
