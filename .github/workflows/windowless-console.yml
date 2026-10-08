@@ -1,0 +1,18 @@
+name: Windowless background launcher check
+on:
+  push:
+    branches: [qbo-console-check]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: windows-2022
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          sparse-checkout: windows-console-test
+      - name: Compare console allocation and migrate real Windows tasks
+        shell: powershell
+        run: '& .\windows-console-test\console-test.ps1'
